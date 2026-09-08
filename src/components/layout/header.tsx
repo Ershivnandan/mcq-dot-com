@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -54,10 +55,14 @@ export function Header({ onMenuToggle, user }: HeaderProps) {
             <span className="sr-only">Toggle Menu</span>
           </Button>
         )}
-        <Link href="/dashboard" className="flex items-center gap-2 font-bold text-lg tracking-tight">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-black shadow">
-            M
-          </span>
+        <Link href="/dashboard" className="flex items-center gap-2.5 font-bold text-lg tracking-tight">
+          <Image
+            src="/logo.png"
+            alt="MCQ Quiz Manager"
+            width={28}
+            height={28}
+            className="h-7 w-7 rounded-lg object-contain shadow-sm"
+          />
           <span className="hidden sm:inline-block">MCQ Quiz Manager</span>
         </Link>
       </div>

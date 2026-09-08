@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/server/auth/session";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { HelpCircle, Sparkles, CheckCircle2, Trophy, ArrowRight } from "lucide-react";
 
@@ -14,10 +15,14 @@ export default async function HomePage() {
     <div className="min-h-screen bg-background flex flex-col justify-between">
       {/* Header */}
       <header className="flex h-16 items-center justify-between px-6 border-b max-w-6xl w-full mx-auto">
-        <div className="flex items-center gap-2 font-black text-xl tracking-tight">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-black shadow">
-            M
-          </span>
+        <div className="flex items-center gap-2.5 font-black text-xl tracking-tight">
+          <Image
+            src="/logo.png"
+            alt="MCQ Quiz Manager"
+            width={32}
+            height={32}
+            className="h-8 w-8 rounded-lg object-contain shadow-sm"
+          />
           <span>MCQ Quiz Manager</span>
         </div>
         <div className="flex items-center gap-3">
@@ -39,7 +44,7 @@ export default async function HomePage() {
         <div className="max-w-3xl text-center space-y-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-600 dark:text-purple-400">
             <Sparkles className="h-3.5 w-3.5" />
-            <span>AI-Powered Learning Platform with BYOK</span>
+            <span>AI-Powered Learning Platform with SK</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-foreground leading-[1.15]">
