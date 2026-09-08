@@ -26,10 +26,18 @@ interface ProviderConfig {
 }
 
 const PROVIDER_MODELS: Record<string, string[]> = {
-  GEMINI: ["gemini-2.5-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+  GEMINI: [
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+  ],
   OPENAI: ["gpt-4o", "gpt-4o-mini", "o3-mini"],
   ANTHROPIC: ["claude-3-5-haiku-latest", "claude-3-5-sonnet-latest"],
 };
+
 
 export function AIProviderSettings() {
   const [configs, setConfigs] = React.useState<ProviderConfig[]>([]);

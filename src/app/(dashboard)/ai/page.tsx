@@ -115,7 +115,7 @@ export default function AIPage() {
       )}
 
       {/* Generator Prompt Panel */}
-      <AIGeneratorPanel onGenerated={loadData} activeProvider={activeProvider} />
+      <AIGeneratorPanel onGenerated={loadData} activeProvider={activeProvider} configs={configs} />
 
       {/* Drafts Review Section */}
       <div className="space-y-4 pt-4 border-t">

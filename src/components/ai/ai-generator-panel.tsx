@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Sparkles, Loader2, BookOpen, Send, HelpCircle, Layers } from "lucide-react";
+import { Sparkles, Loader2, BookOpen, Send, HelpCircle, Layers, Bot, Cpu, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,21 +14,49 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import {
+  GEMINI_MODELS,
+  DEFAULT_GEMINI_MODEL,
+  PROVIDER_MODELS_MAP,
+  AIModelOption,
+} from "@/lib/constants/ai-models";
 
 interface AIGeneratorPanelProps {
   onGenerated: () => void;
   activeProvider?: string | null;
+  configs?: any[];
 }
 
-export function AIGeneratorPanel({ onGenerated, activeProvider }: AIGeneratorPanelProps) {
+export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: AIGeneratorPanelProps) {
   const [prompt, setPrompt] = React.useState("");
   const [count, setCount] = React.useState(5);
   const [difficulty, setDifficulty] = React.useState<"EASY" | "MEDIUM" | "HARD">("MEDIUM");
   const [topic, setTopic] = React.useState("Computer Science");
   const [researchEnabled, setResearchEnabled] = React.useState(false);
 
+  // Model selection state
+  const effectiveProvider = activeProvider || "GEMINI";
+  const availableModels: AIModelOption[] =
+    PROVIDER_MODELS_MAP[effectiveProvider] || GEMINI_MODELS;
+
+  // Find user's configured default model if available
+  const configuredModel =
+    configs.find((c) => c.provider === effectiveProvider)?.defaultModel ||
+    DEFAULT_GEMINI_MODEL;
+
+  const [selectedModel, setSelectedModel] = React.useState<string>(configuredModel);
+
+  // Sync default model if configs load later
+  React.useEffect(() => {
+    if (configuredModel && !selectedModel) {
+      setSelectedModel(configuredModel);
+    }
+  }, [configuredModel, selectedModel]);
+
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  const activeModelDetails = availableModels.find((m) => m.id === selectedModel);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +75,8 @@ export function AIGeneratorPanel({ onGenerated, activeProvider }: AIGeneratorPan
           difficulty,
           topic: topic.trim() || "General",
           researchEnabled,
+          provider: effectiveProvider,
+          model: selectedModel,
         }),
       });
 
@@ -73,7 +103,7 @@ export function AIGeneratorPanel({ onGenerated, activeProvider }: AIGeneratorPan
   return (
     <Card className="border-purple-500/30 shadow-md bg-gradient-to-b from-purple-500/5 to-background">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-600 text-white shadow">
               <Sparkles className="h-4 w-4" />
@@ -81,15 +111,20 @@ export function AIGeneratorPanel({ onGenerated, activeProvider }: AIGeneratorPan
             <div>
               <CardTitle className="text-lg">AI Question Generator</CardTitle>
               <CardDescription className="text-xs">
-                Drafts are schema-validated and held for your review before entering the library.
+                Generate high-quality MCQs using Google Gemini models with full prompt injection control.
               </CardDescription>
             </div>
           </div>
-          {activeProvider && (
-            <span className="rounded-full bg-purple-500/10 px-2.5 py-0.5 text-xs font-semibold text-purple-600 dark:text-purple-400">
-              Provider: {activeProvider}
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-purple-500/10 border border-purple-500/20 px-2.5 py-0.5 text-xs font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1">
+              <Bot className="h-3 w-3" />
+              <span>Provider: {effectiveProvider}</span>
             </span>
-          )}
+            <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <Zap className="h-3 w-3" />
+              <span>{activeModelDetails?.name || selectedModel}</span>
+            </span>
+          </div>
         </div>
       </CardHeader>
 
@@ -102,13 +137,16 @@ export function AIGeneratorPanel({ onGenerated, activeProvider }: AIGeneratorPan
           )}
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-foreground">
-              What kind of questions do you want to generate?
+            <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+              <span>What kind of questions do you want to generate? (Chat Prompt Injection)</span>
+              <span className="text-[11px] text-muted-foreground font-normal">
+                Using: <strong className="text-purple-600 dark:text-purple-400">{selectedModel}</strong>
+              </span>
             </label>
             <Textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="e.g. Generate 5 medium-difficulty questions on React 19 Server Components and Suspense..."
+              placeholder="e.g. Generate 5 medium-difficulty questions on React 19 Server Components, Suspense, and Actions..."
               className="min-h-[85px] text-sm"
               required
             />
@@ -129,8 +167,34 @@ export function AIGeneratorPanel({ onGenerated, activeProvider }: AIGeneratorPan
             ))}
           </div>
 
-          {/* Configuration Parameters */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+          {/* Configuration Parameters Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+            {/* Model Selector */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                <Cpu className="h-3 w-3 text-purple-500" />
+                <span>Gemini Model</span>
+              </label>
+              <Select value={selectedModel} onValueChange={setSelectedModel}>
+                <SelectTrigger className="h-8 text-xs font-medium">
+                  <SelectValue placeholder="Choose model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableModels.map((m) => (
+                    <SelectItem key={m.id} value={m.id} className="text-xs">
+                      <div className="flex items-center justify-between gap-2 py-0.5">
+                        <span className="font-semibold">{m.name}</span>
+                        <span className="text-[10px] rounded bg-purple-500/15 text-purple-600 dark:text-purple-300 px-1.5 py-0.2 font-medium shrink-0">
+                          {m.badge}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Topic / Subject */}
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Topic / Subject</label>
               <Input
@@ -141,6 +205,7 @@ export function AIGeneratorPanel({ onGenerated, activeProvider }: AIGeneratorPan
               />
             </div>
 
+            {/* Difficulty */}
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Difficulty</label>
               <Select
@@ -158,6 +223,7 @@ export function AIGeneratorPanel({ onGenerated, activeProvider }: AIGeneratorPan
               </Select>
             </div>
 
+            {/* Count */}
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Count (1-20)</label>
               <Input
@@ -171,7 +237,15 @@ export function AIGeneratorPanel({ onGenerated, activeProvider }: AIGeneratorPan
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2">
+          {/* Model description caption */}
+          {activeModelDetails?.description && (
+            <p className="text-[11px] text-muted-foreground italic flex items-center gap-1">
+              <span className="font-semibold not-italic text-foreground">{activeModelDetails.name}:</span>
+              {activeModelDetails.description}
+            </p>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
             <div className="flex items-center gap-2">
               <Switch checked={researchEnabled} onCheckedChange={setResearchEnabled} />
               <span className="text-xs font-medium text-muted-foreground">
@@ -187,7 +261,7 @@ export function AIGeneratorPanel({ onGenerated, activeProvider }: AIGeneratorPan
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Generating Drafts...</span>
+                  <span>Generating with {activeModelDetails?.name || selectedModel}...</span>
                 </>
               ) : (
                 <>
