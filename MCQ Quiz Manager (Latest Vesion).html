@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<link rel="icon" type="image/png" href="favicon.png">
+<head>
+<meta charset="UTF-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MCQ Quiz Manager V1.0</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;background:#f4f4f4}
+header{background:#222;color:#fff;padding:12px}
+.container{display:flex;height:calc(100vh - 48px)}
+.sidebar{width:280px;background:#fff;padding:10px;overflow:auto;border-right:1px solid #ddd}
+.main{flex:1;padding:15px;overflow:auto}
+button{cursor:pointer}
+.folder,.quiz{padding:8px;margin:4px 0;background:#eee;border-radius:6px}
+.question-card{background:#fff;padding:10px;margin:10px 0;border-radius:8px}
+.correct{background:#b7f7b7}
+.wrong{background:#ffb8b8}
+.option{padding:8px;margin:5px 0;border:1px solid #ccc;border-radius:5px}
+input,textarea,select{width:100%;padding:8px;margin:4px 0}
+.small{width:auto}
+
+.dark-mode{background:#121212;color:#eee;}
+.dark-mode .sidebar,.dark-mode .question-card,.dark-mode .folder{background:#1f1f1f;color:#eee;}
+.dark-mode .option{border-color:#666;}
+.folder{display:flex;justify-content:space-between;align-items:center;cursor:grab;}
+.folder-actions button{margin-left:4px;}
+
+</style>
+</head>
+<body>
+<header style="display:flex;justify-content:space-between;align-items:center;"><h2>MCQ Quiz Manager V1.0</h2><button id="themeToggle" onclick="toggleTheme()">🌙 Dark Mode</button></header>
+
+<div class="container">
+<div class="sidebar">
+<h3>Folders</h3>
+<input id="folderName" placeholder="Folder name">
+<button onclick="addFolder()">+ Folder</button>
+<div id="folders"></div>
+<hr>
+<button onclick="exportData()">Export Backup</button>
+<input type="file" onchange="importData(event)">
+</div>
+
+<div class="main">
+<h3 id="currentQuiz">Select/Create Folder</h3>
+
+<div class="question-card">
+<input id="questionText" placeholder="Question">
+<div id="options"></div>
+<button onclick="addOptionField()">+ Add Option</button>
+<select id="correctAnswer"></select>
+<button onclick="saveQuestion()" id="saveBtn">Save Question</button>
+</div>
+
+<div id="stats"></div>
+<div id="questions"></div>
+</div>
+</div>
+
+<script>
+let data=JSON.parse(localStorage.getItem("mcqData")||'{"folders":[]}');
+let currentFolder=null; let editingIndex=null; let insertMode=null;
+
+function saveLS(){
+localStorage.setItem("mcqData",JSON.stringify(data));
+renderFolders();
+}
+
+
+function toggleTheme(){
+ document.body.classList.toggle('dark-mode');
+ const dark=document.body.classList.contains('dark-mode');
+ localStorage.setItem('mcqTheme',dark?'dark':'light');
+ document.getElementById('themeToggle').textContent=dark?'☀️ Light Mode':'🌙 Dark Mode';
+}
+
+function ensureImportantFolder(){
+ let idx=data.folders.findIndex(f=>f.name==='Important');
+ if(idx===-1){
+   data.folders.push({name:'Important',questions:[]});
+   idx=data.folders.length-1;
+ }
+ return idx;
+}
+
+function toggleStar(folderIndex,questionIndex){
+ let q=data.folders[folderIndex].questions[questionIndex];
+ q.starred=!q.starred;
+ let imp=ensureImportantFolder();
+
+ if(q.starred){
+   const copy=JSON.parse(JSON.stringify(q));
+   copy.starred=true;
+   if(!data.folders[imp].questions.some(x=>x.q===copy.q)){
+      data.folders[imp].questions.push(copy);
+   }
+ }else{
+   data.folders[imp].questions=data.folders[imp].questions.filter(x=>x.q!==q.q);
+ }
+
+ saveLS();
+ if(currentFolder!==null) renderQuestions();
+}
+
+function renameFolder(index){
+ const name=prompt('Rename folder:',data.folders[index].name);
+ if(name && name.trim()){
+    data.folders[index].name=name.trim();
+    saveLS();
+ }
+}
+
+function deleteFolder(index){
+ if(confirm('Delete folder "'+data.folders[index].name+'"?')){
+    data.folders.splice(index,1);
+    if(currentFolder===index){
+      currentFolder=null;
+      document.getElementById('currentQuiz').innerText='Select/Create Folder';
+      document.getElementById('questions').innerHTML='';
+    }
+    saveLS();
+ }
+}
+
+function addFolder(){
+const n=document.getElementById("folderName").value.trim();
+if(!n)return;
+data.folders.push({name:n,questions:[]});
+document.getElementById("folderName").value="";
+saveLS();
+}
+
+
+function renderFolders(){
+let div=document.getElementById("folders");
+div.innerHTML="";
+data.folders.forEach((f,i)=>{
+let d=document.createElement("div");
+d.className="folder";
+d.draggable=true;
+d.dataset.index=i;
+
+d.innerHTML=`<span>☰ 📁 ${f.name}</span>
+<span class="folder-actions">
+<button onclick="event.stopPropagation();renameFolder(${i})">✏️</button>
+<button onclick="event.stopPropagation();deleteFolder(${i})">🗑️</button>
+</span>`;
+
+d.onclick=()=>openFolder(i);
+
+d.addEventListener('dragstart',e=>{
+ e.dataTransfer.setData('text/plain',i);
+});
+
+d.addEventListener('dragover',e=>e.preventDefault());
+
+d.addEventListener('drop',e=>{
+ e.preventDefault();
+ const from=parseInt(e.dataTransfer.getData('text/plain'));
+ const to=i;
+ if(from===to) return;
+ const moved=data.folders.splice(from,1)[0];
+ data.folders.splice(to,0,moved);
+ saveLS();
+});
+
+div.appendChild(d);
+});
+}
+
+function openFolder(i){
+currentFolder=i;
+document.getElementById("currentQuiz").innerText=data.folders[i].name;
+renderQuestions();
+}
+
+function addOptionField(){
+let c=document.getElementById("options");
+let idx=c.children.length+1;
+let inp=document.createElement("input");
+inp.placeholder="Option "+idx;
+c.appendChild(inp);
+updateCorrectDropdown();
+}
+function updateCorrectDropdown(){
+let s=document.getElementById("correctAnswer");
+s.innerHTML="";
+document.querySelectorAll("#options input").forEach((o,i)=>{
+let op=document.createElement("option");
+op.value=i;
+op.textContent="Option "+(i+1);
+s.appendChild(op);
+});
+}
+
+function loadQuestionForEdit(index){
+ let q=data.folders[currentFolder].questions[index];
+ editingIndex=index;
+ document.getElementById("questionText").value=q.q;
+ document.getElementById("options").innerHTML="";
+ q.opts.forEach(op=>{
+   let inp=document.createElement("input");
+   inp.value=op;
+   document.getElementById("options").appendChild(inp);
+ });
+ updateCorrectDropdown();
+ document.getElementById("correctAnswer").value=q.ans;
+ document.getElementById("saveBtn").textContent="Update Question";
+}
+
+function deleteQuestion(index){
+ if(confirm("Delete this question?")){
+   data.folders[currentFolder].questions.splice(index,1);
+   saveLS();
+   renderQuestions();
+ }
+}
+
+function insertAbove(index){ insertMode={type:"above",index:index}; editingIndex=null; }
+function insertBelow(index){ insertMode={type:"below",index:index}; editingIndex=null; }
+
+function saveQuestion(){
+if(currentFolder===null){alert("Create/open folder first");return;}
+let q=document.getElementById("questionText").value;
+let opts=[...document.querySelectorAll("#options input")].map(x=>x.value).filter(Boolean);
+let ans=parseInt(document.getElementById("correctAnswer").value||0);
+
+if(editingIndex!==null){
+ data.folders[currentFolder].questions[editingIndex]={q,opts,ans};
+ editingIndex=null;
+ document.getElementById("saveBtn").textContent="Save Question";
+}else if(insertMode){
+ let pos=insertMode.type==="above"?insertMode.index:insertMode.index+1;
+ data.folders[currentFolder].questions.splice(pos,0,{q,opts,ans});
+ insertMode.index=pos;
+}else{
+ data.folders[currentFolder].questions.push({q,opts,ans});
+}
+
+saveLS();
+renderQuestions();
+document.getElementById("questionText").value="";
+document.getElementById("options").innerHTML="";
+for(let i=0;i<4;i++){
+addOptionField();
+}
+updateCorrectDropdown();
+}
+function renderQuestions(){
+let wrap=document.getElementById("questions");
+wrap.innerHTML="";
+let qs=data.folders[currentFolder].questions;
+let correct=0,attempted=0;
+
+qs.forEach((q,idx)=>{
+let card=document.createElement("div");
+card.className="question-card";
+card.innerHTML="<b>"+q.q+"</b> ";
+let e=document.createElement("button");
+e.textContent="✏️ Edit";
+e.onclick=()=>loadQuestionForEdit(idx);
+card.appendChild(e);
+
+let d=document.createElement("button");
+d.textContent="🗑 Delete";
+d.onclick=()=>deleteQuestion(idx);
+card.appendChild(d);
+
+let a=document.createElement("button");
+a.textContent="⬆️ Insert Above";
+a.onclick=()=>insertAbove(idx);
+card.appendChild(a);
+
+let b=document.createElement("button");
+b.textContent="⬇️ Insert Below";
+b.onclick=()=>insertBelow(idx);
+card.appendChild(b);
+
+let s=document.createElement("button");
+s.textContent=q.starred ? "⭐" : "☆";
+s.onclick=()=>toggleStar(currentFolder,idx);
+card.appendChild(s);
+q.opts.forEach((op,i)=>{
+let btn=document.createElement("div");
+btn.className="option";
+btn.innerText=op;
+btn.onclick=()=>{
+attempted++;
+if(i===q.ans){
+btn.classList.add("correct");
+correct++;
+}else{
+btn.classList.add("wrong");
+let options = card.querySelectorAll(".option");
+if(options[q.ans]){
+options[q.ans].classList.add("correct");
+}
+}
+card.querySelectorAll(".option").forEach(x=>{
+x.style.pointerEvents="none";
+});
+updateStats(qs.length,attempted,correct);
+};
+card.appendChild(btn);
+});
+wrap.appendChild(card);
+});
+updateStats(qs.length,attempted,correct);
+}
+function updateStats(total,attempted,correct){
+let wrong=attempted-correct;
+let acc=attempted?((correct/attempted)*100).toFixed(2):0;
+document.getElementById("stats").innerHTML=
+`<b>Total:</b> ${total} | <b>Attempted:</b> ${attempted} |
+<b>Correct:</b> ${correct} | <b>Wrong:</b> ${wrong} |
+<b>Accuracy:</b> ${acc}%`;
+}
+
+function exportData(){
+let blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+let a=document.createElement("a");
+a.href=URL.createObjectURL(blob);
+a.download="mcq_backup.json";
+a.click();
+}
+function importData(e){
+let file=e.target.files[0];
+let r=new FileReader();
+r.onload=()=>{
+data=JSON.parse(r.result);
+saveLS();
+};
+r.readAsText(file);
+}
+addOptionField();addOptionField();addOptionField();addOptionField();
+if(localStorage.getItem('mcqTheme')==='dark'){
+ document.body.classList.add('dark-mode');
+}
+setTimeout(()=>{
+ let b=document.getElementById('themeToggle');
+ if(b){
+   b.textContent=document.body.classList.contains('dark-mode')?'☀️ Light Mode':'🌙 Dark Mode';
+ }
+},0);
+renderFolders();
+</script>
+</body>
+</html>
