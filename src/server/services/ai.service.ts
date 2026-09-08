@@ -54,6 +54,7 @@ export class AIService {
       defaultModel: c.defaultModel,
       isDefault: c.isDefault,
       isEnabled: c.isEnabled,
+      detectedModels: (c as any).detectedModels || [],
       updatedAt: c.updatedAt,
     }));
   }
@@ -71,7 +72,19 @@ export class AIService {
       await col.updateMany({ userId }, { $set: { isDefault: false } });
     }
 
-    const updateDoc = {
+    // Try to auto-detect models for this key if supported
+    let detectedModels: string[] = [];
+    try {
+      const providerInstance = getProviderInstance(input.provider);
+      const testRes = await providerInstance.testConnection(input.apiKey);
+      if (testRes.success && testRes.models && testRes.models.length > 0) {
+        detectedModels = testRes.models;
+      }
+    } catch {
+      // Ignore if test fails during save
+    }
+
+    const updateDoc: any = {
       userId,
       provider: input.provider,
       encryptedKey,
@@ -82,6 +95,10 @@ export class AIService {
       isEnabled: true,
       updatedAt: now,
     };
+
+    if (detectedModels.length > 0) {
+      updateDoc.detectedModels = detectedModels;
+    }
 
     const res = await col.findOneAndUpdate(
       { userId, provider: input.provider },
@@ -97,6 +114,7 @@ export class AIService {
       provider: res?.provider,
       defaultModel: res?.defaultModel,
       isDefault: res?.isDefault,
+      detectedModels,
     };
   }
 
@@ -106,6 +124,57 @@ export class AIService {
   static async testConnection(provider: "GEMINI" | "OPENAI" | "ANTHROPIC", apiKey: string) {
     const providerInstance = getProviderInstance(provider);
     return providerInstance.testConnection(apiKey);
+  }
+
+  /**
+   * Retrieves usage statistics and request counts for the user's AI activity.
+   */
+  static async getUsageStats(userId: string) {
+    const logsCol = await getAIUsageLogsCol();
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const allLogs = await logsCol.find({ userId }).sort({ createdAt: -1 }).limit(200).toArray();
+
+    const totalRequests = allLogs.length;
+    const successfulRequests = allLogs.filter((l) => l.status === "SUCCESS").length;
+    const failedRequests = allLogs.filter((l) => l.status === "FAILED").length;
+    const totalQuestionsGenerated = allLogs.reduce((acc, l) => acc + (l.questionCount || 0), 0);
+    const requestsToday = allLogs.filter((l) => new Date(l.createdAt) >= startOfToday).length;
+
+    // Usage by model
+    const byModel: Record<string, number> = {};
+    for (const log of allLogs) {
+      if (log.model) {
+        byModel[log.model] = (byModel[log.model] || 0) + 1;
+      }
+    }
+
+    // Provider configs
+    const configsCol = await getAIProviderConfigsCol();
+    const configs = await configsCol.find({ userId }).toArray();
+    const activeConfig = configs.find((c) => c.isDefault && c.isEnabled) || configs[0];
+
+    return {
+      totalRequests,
+      successfulRequests,
+      failedRequests,
+      totalQuestionsGenerated,
+      requestsToday,
+      byModel,
+      activeProvider: activeConfig?.provider || null,
+      defaultModel: activeConfig?.defaultModel || null,
+      detectedModels: (activeConfig as any)?.detectedModels || [],
+      recentLogs: allLogs.slice(0, 5).map((l) => ({
+        id: l._id?.toString(),
+        model: l.model,
+        provider: l.provider,
+        durationMs: l.durationMs,
+        questionCount: l.questionCount,
+        status: l.status,
+        createdAt: l.createdAt,
+      })),
+    };
   }
 
   /**

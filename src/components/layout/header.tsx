@@ -42,8 +42,9 @@ export function Header({ onMenuToggle, user }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 w-full items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-40 flex h-14 w-full items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 gap-4">
+      {/* Left: Brand Logo & Navigation Toggle */}
+      <div className="flex items-center gap-3 shrink-0">
         {onMenuToggle && (
           <Button
             variant="ghost"
@@ -67,34 +68,53 @@ export function Header({ onMenuToggle, user }: HeaderProps) {
         </Link>
       </div>
 
-      <div className="flex items-center gap-2">
-        {/* Command palette search trigger */}
+      {/* Center: Search Bar with proper responsive width */}
+      <div className="flex-1 flex justify-center max-w-xl mx-2 sm:mx-4">
         <button
+          type="button"
           onClick={() => {
             const event = new KeyboardEvent("keydown", { key: "k", ctrlKey: true });
             document.dispatchEvent(event);
           }}
-          className="hidden md:flex items-center gap-2 rounded-md border border-input bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent transition-colors w-48 justify-between cursor-pointer"
+          className="hidden sm:flex items-center gap-2.5 rounded-lg border border-input/60 bg-muted/40 hover:bg-muted/70 px-3.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-all w-full max-w-sm lg:max-w-md justify-between shadow-2xs cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
         >
-          <span className="flex items-center gap-1.5">
-            <Search className="h-3.5 w-3.5" />
-            <span>Search questions...</span>
+          <span className="flex items-center gap-2 truncate">
+            <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className="truncate">Search questions, topics, exams...</span>
           </span>
-          <kbd className="pointer-events-none inline-flex h-4 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+          <kbd className="pointer-events-none inline-flex h-4 select-none items-center gap-1 rounded border bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground shadow-2xs shrink-0">
             <span className="text-xs">⌘</span>K
           </kbd>
         </button>
+      </div>
+
+      {/* Right: Actions & User Profile */}
+      <div className="flex items-center gap-2 shrink-0">
+        {/* Mobile search trigger icon */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            const event = new KeyboardEvent("keydown", { key: "k", ctrlKey: true });
+            document.dispatchEvent(event);
+          }}
+          className="sm:hidden h-8 w-8 text-muted-foreground"
+          title="Search (⌘K)"
+        >
+          <Search className="h-4 w-4" />
+          <span className="sr-only">Search questions</span>
+        </Button>
 
         <Link href="/questions/new">
-          <Button size="sm" variant="outline" className="hidden sm:inline-flex gap-1.5">
-            <PlusCircle className="h-4 w-4 text-emerald-500" />
+          <Button size="sm" variant="outline" className="hidden sm:inline-flex gap-1.5 text-xs h-8">
+            <PlusCircle className="h-3.5 w-3.5 text-emerald-500" />
             <span>New</span>
           </Button>
         </Link>
 
         <Link href="/ai">
-          <Button size="sm" variant="default" className="hidden sm:inline-flex gap-1.5 bg-purple-600 hover:bg-purple-700 text-white">
-            <Sparkles className="h-4 w-4" />
+          <Button size="sm" variant="default" className="hidden sm:inline-flex gap-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs h-8">
+            <Sparkles className="h-3.5 w-3.5" />
             <span>AI Gen</span>
           </Button>
         </Link>

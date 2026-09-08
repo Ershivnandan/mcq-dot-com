@@ -38,6 +38,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { GEMINI_MODELS, DEFAULT_GEMINI_MODEL } from "@/lib/constants/ai-models";
+import { ModelLimitsDialog } from "@/components/ai/model-limits-dialog";
 import { cn } from "@/lib/utils";
 
 interface OptionItem {
@@ -591,18 +592,21 @@ export function QuestionEditor({
       <Dialog open={aiModalOpen} onOpenChange={setAiModalOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-600 text-white shadow">
-                <Sparkles className="h-4 w-4" />
+            <div className="flex flex-wrap items-center justify-between gap-2 pr-6">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-600 text-white shadow">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <div>
+                  <DialogTitle className="text-base font-bold">
+                    AI Prompt Injection (Question Generator)
+                  </DialogTitle>
+                  <DialogDescription className="text-xs">
+                    Choose a Gemini model and describe the question you want. It will automatically generate and inject into your form.
+                  </DialogDescription>
+                </div>
               </div>
-              <div>
-                <DialogTitle className="text-base font-bold">
-                  AI Prompt Injection (Question Generator)
-                </DialogTitle>
-                <DialogDescription className="text-xs">
-                  Choose a Gemini model and describe the question you want. It will automatically generate and inject the question statement, options, correct answer, and explanation.
-                </DialogDescription>
-              </div>
+              <ModelLimitsDialog provider="GEMINI" />
             </div>
           </DialogHeader>
 
@@ -616,10 +620,17 @@ export function QuestionEditor({
             {/* Model and Difficulty Selectors */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <Cpu className="h-3.5 w-3.5 text-purple-600" />
-                  <span>Google Gemini Model</span>
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Cpu className="h-3.5 w-3.5 text-purple-600" />
+                    <span>Google Gemini Model</span>
+                  </label>
+                  {activeModelDetails?.limitsSummary && (
+                    <span className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold">
+                      {activeModelDetails.limitsSummary}
+                    </span>
+                  )}
+                </div>
                 <Select value={aiModel} onValueChange={setAiModel}>
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Choose Gemini model" />
@@ -627,22 +638,38 @@ export function QuestionEditor({
                   <SelectContent>
                     {GEMINI_MODELS.map((m) => (
                       <SelectItem key={m.id} value={m.id} className="text-xs">
-                        <div className="flex items-center justify-between gap-2 py-0.5">
+                        <div className="flex items-center justify-between gap-3 py-0.5">
                           <span className="font-semibold">{m.name}</span>
-                          <span className="text-[10px] rounded bg-purple-500/15 text-purple-600 dark:text-purple-300 px-1.5 py-0.2 font-medium shrink-0">
-                            {m.badge}
-                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {m.freeRpd && (
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                {m.freeRpd}
+                              </span>
+                            )}
+                            <span className="text-[10px] rounded bg-purple-500/15 text-purple-600 dark:text-purple-300 px-1.5 py-0.2 font-medium">
+                              {m.badge}
+                            </span>
+                          </div>
                         </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {activeModelDetails?.description && (
-                  <p className="text-[10px] text-muted-foreground leading-tight">
-                    {activeModelDetails.description}
-                  </p>
+                {activeModelDetails && (
+                  <div className="space-y-0.5 pt-0.5">
+                    {activeModelDetails.description && (
+                      <p className="text-[10px] text-muted-foreground leading-tight">
+                        {activeModelDetails.description}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5 border-t border-border/40">
+                      <span>Limit: <strong>{activeModelDetails.freeRpm || "15 RPM"} · {activeModelDetails.freeRpd || "1,500 RPD"}</strong></span>
+                      <span>Context: {activeModelDetails.contextWindow || "1M"}</span>
+                    </div>
+                  </div>
                 )}
               </div>
+
 
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground">

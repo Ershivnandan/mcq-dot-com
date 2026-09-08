@@ -20,6 +20,7 @@ import {
   PROVIDER_MODELS_MAP,
   AIModelOption,
 } from "@/lib/constants/ai-models";
+import { ModelLimitsDialog } from "@/components/ai/model-limits-dialog";
 
 interface AIGeneratorPanelProps {
   onGenerated: () => void;
@@ -115,18 +116,16 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
               </CardDescription>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-purple-500/10 border border-purple-500/20 px-2.5 py-0.5 text-xs font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1">
               <Bot className="h-3 w-3" />
               <span>Provider: {effectiveProvider}</span>
             </span>
-            <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-              <Zap className="h-3 w-3" />
-              <span>{activeModelDetails?.name || selectedModel}</span>
-            </span>
+            <ModelLimitsDialog provider={effectiveProvider} />
           </div>
         </div>
       </CardHeader>
+
 
       <CardContent>
         <form onSubmit={handleGenerate} className="space-y-4">
@@ -182,11 +181,18 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
                 <SelectContent>
                   {availableModels.map((m) => (
                     <SelectItem key={m.id} value={m.id} className="text-xs">
-                      <div className="flex items-center justify-between gap-2 py-0.5">
+                      <div className="flex items-center justify-between gap-3 py-0.5">
                         <span className="font-semibold">{m.name}</span>
-                        <span className="text-[10px] rounded bg-purple-500/15 text-purple-600 dark:text-purple-300 px-1.5 py-0.2 font-medium shrink-0">
-                          {m.badge}
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {m.freeRpd && (
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {m.freeRpd}
+                            </span>
+                          )}
+                          <span className="text-[10px] rounded bg-purple-500/15 text-purple-600 dark:text-purple-300 px-1.5 py-0.2 font-medium">
+                            {m.badge}
+                          </span>
+                        </div>
                       </div>
                     </SelectItem>
                   ))}
@@ -237,13 +243,24 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
             </div>
           </div>
 
-          {/* Model description caption */}
-          {activeModelDetails?.description && (
-            <p className="text-[11px] text-muted-foreground italic flex items-center gap-1">
-              <span className="font-semibold not-italic text-foreground">{activeModelDetails.name}:</span>
-              {activeModelDetails.description}
-            </p>
+          {/* Model description caption & limits */}
+          {activeModelDetails && (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+              <p className="italic">
+                <span className="font-semibold not-italic text-foreground">{activeModelDetails.name}:</span>{" "}
+                {activeModelDetails.description}
+              </p>
+              <div className="flex items-center gap-1.5 not-italic text-[10px]">
+                <span className="rounded bg-muted px-1.5 py-0.5 font-medium">
+                  Limit: {activeModelDetails.freeRpm || "15 RPM"} · {activeModelDetails.freeRpd || "1,500 RPD"}
+                </span>
+                <span className="rounded bg-muted px-1.5 py-0.5 font-medium">
+                  Context: {activeModelDetails.contextWindow || "1M tokens"}
+                </span>
+              </div>
+            </div>
           )}
+
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
             <div className="flex items-center gap-2">

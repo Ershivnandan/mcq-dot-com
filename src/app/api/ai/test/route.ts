@@ -11,12 +11,28 @@ const TestKeySchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    await requireAuth();
+    const user = await requireAuth();
     const body = await req.json();
     const { provider, apiKey } = TestKeySchema.parse(body);
 
     const result = await AIService.testConnection(provider, apiKey);
+
+    // If test succeeds and has detected models, update user's saved config if one exists
+    if (result.success && result.models && result.models.length > 0) {
+      try {
+        const { getAIProviderConfigsCol } = await import("@/server/db");
+        const col = await getAIProviderConfigsCol();
+        await col.updateOne(
+          { userId: user.id, provider },
+          { $set: { detectedModels: result.models, updatedAt: new Date() } }
+        );
+      } catch {
+        // Non-blocking
+      }
+    }
+
     return NextResponse.json(result);
+
   } catch (error: any) {
     const status = error.message === "UNAUTHORIZED" ? 401 : 400;
     return NextResponse.json({ success: false, message: error.message }, { status });
