@@ -1,4 +1,11 @@
-import { prisma } from "@/server/db";
+import {
+  getQuestionProgressCol,
+  getQuestionsCol,
+  getTopicsCol,
+  getCategoriesCol,
+  toObjectId,
+  formatDoc,
+} from "@/server/db";
 
 export class SpacedRepetitionService {
   /**
@@ -10,9 +17,8 @@ export class SpacedRepetitionService {
     isCorrect: boolean,
     timeSpentSeconds: number = 0
   ) {
-    const existing = await prisma.questionProgress.findUnique({
-      where: { questionId },
-    });
+    const col = await getQuestionProgressCol();
+    const existing = await col.findOne({ questionId });
 
     const now = new Date();
     const currentStreak = isCorrect ? ((existing?.currentStreak || 0) + 1) : 0;
@@ -57,37 +63,33 @@ export class SpacedRepetitionService {
     const nextReviewAt = new Date();
     nextReviewAt.setDate(nextReviewAt.getDate() + intervalDays);
 
-    return prisma.questionProgress.upsert({
-      where: { questionId },
-      create: {
-        userId,
-        questionId,
-        attemptCount,
-        correctCount,
-        incorrectCount,
-        accuracy,
-        currentStreak,
-        lastAttemptAt: now,
-        lastCorrectAt: isCorrect ? now : null,
-        nextReviewAt,
-        masteryLevel,
-        easeFactor,
-        intervalDays,
+    const updateDoc = {
+      userId,
+      questionId,
+      attemptCount,
+      correctCount,
+      incorrectCount,
+      accuracy,
+      currentStreak,
+      lastAttemptAt: now,
+      ...(isCorrect ? { lastCorrectAt: now } : {}),
+      nextReviewAt,
+      masteryLevel,
+      easeFactor,
+      intervalDays,
+      updatedAt: now,
+    };
+
+    const res = await col.findOneAndUpdate(
+      { questionId },
+      {
+        $set: updateDoc,
+        $setOnInsert: { createdAt: now },
       },
-      update: {
-        attemptCount,
-        correctCount,
-        incorrectCount,
-        accuracy,
-        currentStreak,
-        lastAttemptAt: now,
-        ...(isCorrect ? { lastCorrectAt: now } : {}),
-        nextReviewAt,
-        masteryLevel,
-        easeFactor,
-        intervalDays,
-      },
-    });
+      { upsert: true, returnDocument: "after" }
+    );
+
+    return formatDoc(res);
   }
 
   /**
@@ -95,30 +97,57 @@ export class SpacedRepetitionService {
    */
   static async getQuestionsDueToday(userId: string, limit: number = 20) {
     const now = new Date();
-    const progressList = await prisma.questionProgress.findMany({
-      where: {
-        userId,
-        OR: [
-          { nextReviewAt: { lte: now } },
-          { nextReviewAt: null },
-          { accuracy: { lt: 60 }, attemptCount: { gt: 0 } },
-        ],
-      },
-      take: limit,
-      include: {
-        question: {
-          include: {
-            topic: true,
-            category: true,
-          },
-        },
-      },
-      orderBy: [
-        { nextReviewAt: "asc" },
-        { accuracy: "asc" },
-      ],
-    });
+    const progressCol = await getQuestionProgressCol();
+    const questionsCol = await getQuestionsCol();
+    const topicsCol = await getTopicsCol();
+    const categoriesCol = await getCategoriesCol();
 
-    return progressList.map((p) => p.question).filter(Boolean);
+    const progressList = await progressCol
+      .find({
+        userId,
+        $or: [
+          { nextReviewAt: { $lte: now } },
+          { nextReviewAt: null },
+          { accuracy: { $lt: 60 }, attemptCount: { $gt: 0 } },
+        ],
+      })
+      .sort({ nextReviewAt: 1, accuracy: 1 })
+      .limit(limit)
+      .toArray();
+
+    if (progressList.length === 0) return [];
+
+    const questionIds = progressList.map((p) => toObjectId(p.questionId));
+    const questions = await questionsCol
+      .find({ _id: { $in: questionIds }, userId })
+      .toArray();
+
+    // Attach topics and categories
+    const topicIds = questions
+      .map((q) => q.topicId)
+      .filter((id): id is string => Boolean(id))
+      .map(toObjectId);
+    const categoryIds = questions
+      .map((q) => q.categoryId)
+      .filter((id): id is string => Boolean(id))
+      .map(toObjectId);
+
+    const [topics, categories] = await Promise.all([
+      topicsCol.find({ _id: { $in: topicIds } }).toArray(),
+      categoriesCol.find({ _id: { $in: categoryIds } }).toArray(),
+    ]);
+
+    const topicMap = new Map(topics.map((t) => [t._id?.toString(), t]));
+    const catMap = new Map(categories.map((c) => [c._id?.toString(), c]));
+
+    return questions.map((q) => {
+      const qId = q._id ? q._id.toString() : (q.id || "");
+      return {
+        ...q,
+        id: qId,
+        topic: q.topicId ? formatDoc(topicMap.get(q.topicId) || null) : null,
+        category: q.categoryId ? formatDoc(catMap.get(q.categoryId) || null) : null,
+      };
+    });
   }
 }

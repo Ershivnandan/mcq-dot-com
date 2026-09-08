@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/db";
+import { getUsersCol } from "@/server/db";
 import { LoginSchema } from "@/lib/validation/schemas";
 import { verifyPassword, createSession } from "@/server/auth/session";
 
@@ -8,8 +8,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const validated = LoginSchema.parse(body);
 
-    const user = await prisma.user.findUnique({
-      where: { email: validated.email.toLowerCase() },
+    const usersCol = await getUsersCol();
+    const user = await usersCol.findOne({
+      email: validated.email.toLowerCase(),
     });
 
     if (!user) {
@@ -21,14 +22,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
 
-    await createSession(user.id);
+    const userId = user._id ? user._id.toString() : user.id || "";
+    await createSession(userId);
 
     return NextResponse.json({
       user: {
-        id: user.id,
+        id: userId,
         email: user.email,
         name: user.name,
-        image: user.image,
+        image: user.image || null,
       },
       message: "Logged in successfully",
     });

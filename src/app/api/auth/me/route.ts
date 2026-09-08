@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/server/auth/session";
-import { prisma } from "@/server/db";
+import { getUserPreferencesCol, formatDoc } from "@/server/db";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -8,12 +8,11 @@ export async function GET() {
     return NextResponse.json({ user: null });
   }
 
-  const preference = await prisma.userPreference.findUnique({
-    where: { userId: user.id },
-  });
+  const prefsCol = await getUserPreferencesCol();
+  const preference = await prefsCol.findOne({ userId: user.id });
 
   return NextResponse.json({
     user,
-    preference: preference || { theme: "system" },
+    preference: formatDoc(preference) || { theme: "system" },
   });
 }

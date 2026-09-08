@@ -1,14 +1,14 @@
 # 🧠 MCQ Quiz Manager — Enterprise Full-Stack Rebuild
 
-A modern, production-ready, full-stack quiz and spaced-repetition platform built with **Next.js 15 (App Router)**, **React 19**, **Prisma ORM**, **MongoDB Atlas**, **Tailwind CSS v4**, and **BYOK AI** (Google Gemini, OpenAI, Anthropic).
+A modern, production-ready, full-stack quiz and spaced-repetition platform built with **Next.js 15 (App Router)**, **React 19**, **Native MongoDB Driver (`mongodb`)**, **MongoDB Atlas**, **Tailwind CSS v4**, and **BYOK AI** (Google Gemini, OpenAI, Anthropic).
 
 ---
 
 ## 🌟 Key Features
 
-- 🔒 **MongoDB Atlas & Multi-User Architecture**: Strict server-side user isolation, composite document schemas, and session authentication via `httpOnly` secure cookies.
+- 🔒 **Native MongoDB Atlas Driver**: 100% pure Node.js MongoDB driver connection pooling (`MongoClient`). Zero heavy binary engine dependencies, zero migration bottlenecks. Collections and indexes are created automatically on write.
 - 🤖 **Bring-Your-Own-Key (BYOK) AI**: Connect Google Gemini, OpenAI, or Anthropic. All API keys are encrypted at rest with **AES-256-GCM** and never sent to the client browser.
-- 🛡️ **AI Draft Approval Workflow**: AI-generated questions are saved as `DRAFT` status and reviewed by you before being added to your permanent question bank.
+- 🛡️ **AI Draft Approval Workflow**: AI-generated questions are saved with `DRAFT` status and reviewed by you before being added to your permanent question bank.
 - 📈 **Spaced Repetition (SuperMemo SM-2)**: Algorithmically schedules daily reviews based on recall accuracy and response time, preventing the forgetting curve.
 - 🎯 **Dual Quiz Modes**:
   - **Practice Mode**: Instant answer feedback, full explanations, related questions, and bookmarking.
@@ -31,7 +31,7 @@ A modern, production-ready, full-stack quiz and spaced-repetition platform built
 | **Framework** | Next.js 15 (App Router, Server Components & Server Actions) |
 | **UI Library** | React 19, Lucide React, Framer Motion |
 | **Styling** | Tailwind CSS v4, Radix UI Primitives, Custom Themes |
-| **Database** | MongoDB Atlas via Prisma ORM 6 |
+| **Database** | MongoDB Atlas via Official Native `mongodb` Driver (v7) |
 | **Encryption** | AES-256-GCM (Cipher/Decipher with Auth Tag verification) |
 | **AI Providers** | Google Gemini (`@google/genai`), OpenAI API, Anthropic Claude |
 | **Testing** | Vitest with fast TypeScript runner |
@@ -49,36 +49,27 @@ A modern, production-ready, full-stack quiz and spaced-repetition platform built
 
 ### 2. Environment Setup
 
-Create a `.env` file in the root directory (or copy `.env.example`):
+Create or check the `.env` file in the root directory:
 
 ```bash
 # MongoDB Atlas connection string
-DATABASE_URL="mongodb+srv://<username>:<password>@cluster0.mongodb.net/mcq_manager?retryWrites=true&w=majority"
+DATABASE_URL="mongodb+srv://<username>:<password>@cluster0.mongodb.net/mcq_quiz_manager?retryWrites=true&w=majority"
 
 # 32-byte secret for session cookies (generate with `openssl rand -base64 32`)
-AUTH_SECRET="your-32-byte-base64-auth-secret"
+AUTH_SECRET="e9a2f7c4b1d8e3a5f6c7b8d9e0a1f2c3b4d5e6a7f8b9c0d1e2f3a4b5c6d7e8f9"
 
 # 32-byte hex key (64 hex characters) for AES-256-GCM encryption of user AI keys
-# (generate with `openssl rand -hex 32` or node -e "console.log(crypto.randomBytes(32).toString('hex'))")
-ENCRYPTION_KEY="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+ENCRYPTION_KEY="7d4e1a8b9c2f3e5a6b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a"
 
 # Application URL
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
 
-### 3. Database Initialization
+> **Important**: In your MongoDB Atlas dashboard under **Network Access**, ensure your IP address (or `0.0.0.0/0` for universal development access) is added to the IP Access List so Atlas allows connections.
 
-Generate the Prisma Client and push the schema to MongoDB Atlas:
+### 3. Running the Application
 
-```bash
-# Generate Prisma Client
-pnpm run db:generate
-
-# Push collections and indexes to MongoDB Atlas
-pnpm run db:push
-```
-
-### 4. Running the Application
+Because we use the native MongoDB driver, **no schema pushes or database migrations are required**! MongoDB automatically initializes collections and indexes on demand.
 
 ```bash
 # Start local development server
@@ -101,8 +92,7 @@ pnpm dev
 You can also run the CLI migration script directly:
 
 ```bash
-# Usage: pnpm run db:import -- <userId> [path_to_backup.json]
-pnpm run db:import -- <YOUR_USER_ID> mcq_backup_new.json
+pnpm run db:import
 ```
 
 ---
@@ -146,9 +136,6 @@ pnpm build
 ## 📂 Project Structure
 
 ```
-├── prisma/
-│   ├── schema.prisma          # MongoDB Atlas Prisma schema
-│   └── seed.ts                # Seed script
 ├── scripts/
 │   └── import-backup.ts       # CLI migration script for mcq_backup_new.json
 ├── src/
@@ -169,12 +156,14 @@ pnpm build
 │   │   ├── validation/        # Zod validation schemas
 │   │   └── utils.ts           # Styling and date/time helpers
 │   ├── middleware.ts          # Edge authentication guard
-│   └── server/
-│       ├── auth/              # Bcrypt hashing, session cookies, auth guards
-│       ├── db.ts              # PrismaClient singleton
-│       ├── encryption/        # AES-256-GCM crypto service
-│       ├── providers/         # Gemini, OpenAI, and Anthropic API clients
-│       └── services/          # Core domain business logic
+│   ├── server/
+│   │   ├── auth/              # Bcrypt hashing, session cookies, auth guards
+│   │   ├── db.ts              # Native MongoClient connection pool & collection helpers
+│   │   ├── encryption/        # AES-256-GCM crypto service
+│   │   ├── providers/         # Gemini, OpenAI, and Anthropic API clients
+│   │   └── services/          # Core domain business logic
+│   └── types/
+│       └── database.ts        # Pure TypeScript interfaces for all collections
 └── tests/
     └── unit/                  # Vitest unit test suites
 ```

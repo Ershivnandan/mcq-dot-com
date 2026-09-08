@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/server/db";
+import { getSessionsCol, getUsersCol, toObjectId } from "@/server/db";
 
 export const SESSION_COOKIE_NAME = "mcq_session_token";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
@@ -26,12 +26,12 @@ export async function createSession(userId: string): Promise<string> {
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_MAX_AGE * 1000);
 
-  await prisma.session.create({
-    data: {
-      userId,
-      token,
-      expiresAt,
-    },
+  const sessions = await getSessionsCol();
+  await sessions.insertOne({
+    userId,
+    token,
+    expiresAt,
+    createdAt: new Date(),
   });
 
   const cookieStore = await cookies();
@@ -52,11 +52,10 @@ export async function destroySession(): Promise<void> {
 
   if (token) {
     try {
-      await prisma.session.deleteMany({
-        where: { token },
-      });
+      const sessions = await getSessionsCol();
+      await sessions.deleteMany({ token });
     } catch {
-      // Ignore if already deleted
+      // Ignore
     }
   }
 
@@ -70,28 +69,27 @@ export async function getSessionUser(): Promise<AuthUser | null> {
 
     if (!token) return null;
 
-    const session = await prisma.session.findUnique({
-      where: { token },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            image: true,
-          },
-        },
-      },
-    });
+    const sessions = await getSessionsCol();
+    const session = await sessions.findOne({ token });
 
     if (!session || session.expiresAt < new Date()) {
-      if (session) {
-        await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+      if (session && session._id) {
+        await sessions.deleteOne({ _id: session._id }).catch(() => {});
       }
       return null;
     }
 
-    return session.user;
+    const users = await getUsersCol();
+    const user = await users.findOne({ _id: toObjectId(session.userId) });
+
+    if (!user) return null;
+
+    return {
+      id: user._id ? user._id.toString() : user.id || "",
+      email: user.email,
+      name: user.name,
+      image: user.image || null,
+    };
   } catch (error: any) {
     if (error?.digest === "DYNAMIC_SERVER_USAGE" || error?.message?.includes("Dynamic server usage")) {
       throw error;

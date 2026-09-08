@@ -1,20 +1,35 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/server/auth/session";
 import { TaxonomyService } from "@/server/services/taxonomy.service";
-import { prisma } from "@/server/db";
+import { getCategoriesCol, getTopicsCol, getQuestionsCol, toObjectId, formatDoc } from "@/server/db";
 
 export async function GET() {
   try {
     const user = await requireAuth();
-    const categories = await prisma.category.findMany({
-      where: { userId: user.id },
-      orderBy: { name: "asc" },
-      include: {
-        topic: true,
-        _count: { select: { questions: true } },
-      },
-    });
-    return NextResponse.json(categories);
+    const categoriesCol = await getCategoriesCol();
+    const topicsCol = await getTopicsCol();
+    const questionsCol = await getQuestionsCol();
+
+    const rawCategories = await categoriesCol.find({ userId: user.id }).sort({ name: 1 }).toArray();
+
+    const topicIds = rawCategories.map((c) => c.topicId).filter((id): id is string => Boolean(id)).map(toObjectId);
+    const topics = await topicsCol.find({ _id: { $in: topicIds } }).toArray();
+    const topicMap = new Map(topics.map((t) => [t._id.toString(), t]));
+
+    const categoriesWithCounts = await Promise.all(
+      rawCategories.map(async (c) => {
+        const catId = c._id ? c._id.toString() : c.id;
+        const count = await questionsCol.countDocuments({ userId: user.id, categoryId: catId });
+        const topic = c.topicId ? formatDoc(topicMap.get(c.topicId) || null) : null;
+        return {
+          ...formatDoc(c),
+          topic,
+          _count: { questions: count },
+        };
+      })
+    );
+
+    return NextResponse.json(categoriesWithCounts);
   } catch (error: any) {
     const status = error.message === "UNAUTHORIZED" ? 401 : 400;
     return NextResponse.json({ error: error.message }, { status });

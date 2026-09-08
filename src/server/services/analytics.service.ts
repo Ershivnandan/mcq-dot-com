@@ -1,10 +1,24 @@
-import { prisma } from "@/server/db";
+import {
+  getQuestionsCol,
+  getQuizAttemptsCol,
+  getQuestionProgressCol,
+  getTopicsCol,
+  toObjectId,
+  formatDocs,
+} from "@/server/db";
 
 export class AnalyticsService {
   /**
    * Computes comprehensive analytics dashboard metrics for the user.
    */
   static async getDashboardMetrics(userId: string) {
+    const [questionsCol, attemptsCol, progressCol, topicsCol] = await Promise.all([
+      getQuestionsCol(),
+      getQuizAttemptsCol(),
+      getQuestionProgressCol(),
+      getTopicsCol(),
+    ]);
+
     const [
       totalQuestions,
       favoritesCount,
@@ -13,30 +27,22 @@ export class AnalyticsService {
       progressItems,
       topics,
     ] = await Promise.all([
-      prisma.question.count({ where: { userId, isArchived: false } }),
-      prisma.question.count({ where: { userId, isFavorite: true, isArchived: false } }),
-      prisma.question.count({ where: { userId, isArchived: true } }),
-      prisma.quizAttempt.findMany({
-        where: { userId },
-        orderBy: { completedAt: "desc" },
-        take: 50,
-      }),
-      prisma.questionProgress.findMany({
-        where: { userId },
-        include: {
-          question: {
-            select: {
-              topicId: true,
-              difficulty: true,
-            },
-          },
-        },
-      }),
-      prisma.topic.findMany({
-        where: { userId },
-        select: { id: true, name: true },
-      }),
+      questionsCol.countDocuments({ userId, isArchived: false }),
+      questionsCol.countDocuments({ userId, isFavorite: true, isArchived: false }),
+      questionsCol.countDocuments({ userId, isArchived: true }),
+      attemptsCol.find({ userId }).sort({ completedAt: -1 }).limit(50).toArray(),
+      progressCol.find({ userId }).toArray(),
+      topicsCol.find({ userId }).project({ _id: 1, name: 1 }).toArray(),
     ]);
+
+    // Attach questions difficulty and topic to progress items
+    const questionIds = progressItems.map((p) => toObjectId(p.questionId));
+    const questions = await questionsCol
+      .find({ _id: { $in: questionIds }, userId })
+      .project({ _id: 1, topicId: 1, difficulty: 1 })
+      .toArray();
+
+    const questionMap = new Map(questions.map((q) => [q._id.toString(), q]));
 
     // Overall accuracy
     const practicedCount = progressItems.filter((p) => p.attemptCount > 0).length;
@@ -69,7 +75,8 @@ export class AnalyticsService {
     };
 
     progressItems.forEach((p) => {
-      const diff = p.question?.difficulty || "MEDIUM";
+      const q = questionMap.get(p.questionId);
+      const diff = q?.difficulty || "MEDIUM";
       if (difficultyStats[diff]) {
         difficultyStats[diff].total += p.attemptCount;
         difficultyStats[diff].correct += p.correctCount;
@@ -82,11 +89,12 @@ export class AnalyticsService {
     });
 
     // Topic performance
-    const topicMap = new Map(topics.map((t) => [t.id, t.name]));
+    const topicMap = new Map(topics.map((t) => [t._id.toString(), t.name]));
     const topicPerformance: Record<string, { name: string; attempts: number; correct: number; accuracy: number }> = {};
 
     progressItems.forEach((p) => {
-      const topicName = (p.question?.topicId && topicMap.get(p.question.topicId)) || "General";
+      const q = questionMap.get(p.questionId);
+      const topicName = (q?.topicId && topicMap.get(q.topicId)) || "General";
       if (!topicPerformance[topicName]) {
         topicPerformance[topicName] = { name: topicName, attempts: 0, correct: 0, accuracy: 0 };
       }
@@ -94,10 +102,12 @@ export class AnalyticsService {
       topicPerformance[topicName].correct += p.correctCount;
     });
 
-    const topicStats = Object.values(topicPerformance).map((t) => ({
-      ...t,
-      accuracy: t.attempts > 0 ? parseFloat(((t.correct / t.attempts) * 100).toFixed(1)) : 0,
-    })).sort((a, b) => b.attempts - a.attempts);
+    const topicStats = Object.values(topicPerformance)
+      .map((t) => ({
+        ...t,
+        accuracy: t.attempts > 0 ? parseFloat(((t.correct / t.attempts) * 100).toFixed(1)) : 0,
+      }))
+      .sort((a, b) => b.attempts - a.attempts);
 
     const strongestTopics = [...topicStats]
       .filter((t) => t.attempts >= 3)
@@ -110,12 +120,15 @@ export class AnalyticsService {
       .slice(0, 5);
 
     // Recent attempts for activity chart (last 10)
-    const recentActivity = quizAttempts.slice(0, 10).reverse().map((a) => ({
-      date: a.completedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      accuracy: a.accuracy,
-      score: a.score,
-      total: a.totalQuestions,
-    }));
+    const recentActivity = quizAttempts
+      .slice(0, 10)
+      .reverse()
+      .map((a) => ({
+        date: a.completedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        accuracy: a.accuracy,
+        score: a.score,
+        total: a.totalQuestions,
+      }));
 
     return {
       overview: {
@@ -132,7 +145,7 @@ export class AnalyticsService {
       strongestTopics,
       weakestTopics,
       recentActivity,
-      recentQuizzes: quizAttempts.slice(0, 5),
+      recentQuizzes: formatDocs(quizAttempts.slice(0, 5)),
     };
   }
 }

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireAuth } from "@/server/auth/session";
 import { AnalyticsService } from "@/server/services/analytics.service";
 import { SpacedRepetitionService } from "@/server/services/spaced-repetition.service";
-import { prisma } from "@/server/db";
+import { QuestionService } from "@/server/services/question.service";
 import {
   PlusCircle,
   Play,
@@ -26,20 +26,13 @@ import { formatDate } from "@/lib/utils";
 export default async function DashboardPage() {
   const user = await requireAuth();
 
-  const [metrics, dueQuestions, recentQuestions] = await Promise.all([
+  const [metrics, dueQuestions, recentQuestionsData] = await Promise.all([
     AnalyticsService.getDashboardMetrics(user.id),
     SpacedRepetitionService.getQuestionsDueToday(user.id, 4),
-    prisma.question.findMany({
-      where: { userId: user.id, isArchived: false },
-      orderBy: { createdAt: "desc" },
-      take: 4,
-      include: {
-        topic: true,
-        category: true,
-      },
-    }),
+    QuestionService.getQuestions(user.id, { page: 1, limit: 4, sortBy: "createdAt", sortOrder: "desc" }),
   ]);
 
+  const recentQuestions = recentQuestionsData.questions;
   const { overview, weakestTopics, recentQuizzes } = metrics;
 
   return (

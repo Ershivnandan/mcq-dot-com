@@ -1,4 +1,13 @@
-import { prisma } from "@/server/db";
+import {
+  getQuestionsCol,
+  getCollectionsCol,
+  getTopicsCol,
+  getCategoriesCol,
+  getQuestionProgressCol,
+  getTagsCol,
+  toObjectId,
+  formatDoc,
+} from "@/server/db";
 
 export interface ImportSummary {
   imported: number;
@@ -44,26 +53,43 @@ export class ImportExportService {
       throw new Error("Invalid backup format: missing 'folders' array.");
     }
 
+    const [questionsCol, collectionsCol, topicsCol, categoriesCol, progressCol] = await Promise.all([
+      getQuestionsCol(),
+      getCollectionsCol(),
+      getTopicsCol(),
+      getCategoriesCol(),
+      getQuestionProgressCol(),
+    ]);
+
     // Get all existing question texts for user to prevent duplicates
-    const existingQuestions = await prisma.question.findMany({
-      where: { userId },
-      select: { questionText: true },
-    });
+    const existingQuestions = await questionsCol
+      .find({ userId })
+      .project({ questionText: 1 })
+      .toArray();
     const existingSet = new Set(existingQuestions.map((q) => q.questionText.trim().toLowerCase()));
 
     // Create or find Important collection
-    let importantCollection = await prisma.collection.findFirst({
-      where: { userId, name: "Important" },
-    });
+    let importantCollection = await collectionsCol.findOne({ userId, name: "Important" });
     if (!importantCollection) {
-      importantCollection = await prisma.collection.create({
-        data: {
-          userId,
-          name: "Important",
-          description: "Starred and important questions from backup",
-          color: "#f59e0b",
-        },
+      const now = new Date();
+      const insertRes = await collectionsCol.insertOne({
+        userId,
+        name: "Important",
+        description: "Starred and important questions from backup",
+        color: "#f59e0b",
+        createdAt: now,
+        updatedAt: now,
       });
+      importantCollection = {
+        _id: insertRes.insertedId,
+        id: insertRes.insertedId.toString(),
+        userId,
+        name: "Important",
+        description: "Starred and important questions from backup",
+        color: "#f59e0b",
+        createdAt: now,
+        updatedAt: now,
+      };
     }
 
     for (const folder of rawJson.folders) {
@@ -84,15 +110,23 @@ export class ImportExportService {
         topicName = "Current Affairs";
       }
 
-      const topic = await prisma.topic.upsert({
-        where: { userId_name: { userId, name: topicName } },
-        create: {
-          userId,
-          name: topicName,
-          slug: topicName.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-") || "topic",
+      const slug = topicName.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-") || "topic";
+      const now = new Date();
+      const topic = await topicsCol.findOneAndUpdate(
+        { userId, name: topicName },
+        {
+          $setOnInsert: {
+            userId,
+            name: topicName,
+            slug,
+            createdAt: now,
+            updatedAt: now,
+          },
         },
-        update: {},
-      });
+        { upsert: true, returnDocument: "after" }
+      );
+
+      const topicId = topic?._id?.toString() || null;
 
       if (!summary.topicsCreated.includes(topicName)) {
         summary.topicsCreated.push(topicName);
@@ -101,17 +135,22 @@ export class ImportExportService {
       let categoryId: string | null = null;
       if (topicName !== folderName) {
         const cleanCatName = folderName.replace(/[\u{1F300}-\u{1FAFF}]/gu, "").trim();
-        const category = await prisma.category.upsert({
-          where: { userId_name: { userId, name: cleanCatName } },
-          create: {
-            userId,
-            topicId: topic.id,
-            name: cleanCatName,
-            slug: cleanCatName.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-") || "category",
+        const catSlug = cleanCatName.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-") || "category";
+        const category = await categoriesCol.findOneAndUpdate(
+          { userId, name: cleanCatName },
+          {
+            $setOnInsert: {
+              userId,
+              name: cleanCatName,
+              slug: catSlug,
+              topicId,
+              createdAt: now,
+              updatedAt: now,
+            },
           },
-          update: {},
-        });
-        categoryId = category.id;
+          { upsert: true, returnDocument: "after" }
+        );
+        categoryId = category?._id?.toString() || null;
       }
 
       let currentSectionDate: Date | null = null;
@@ -142,12 +181,11 @@ export class ImportExportService {
         // If duplicate
         if (existingSet.has(normalizedQ)) {
           summary.duplicates++;
-          // If in important folder or item is starred, ensure favorite flag and collection
           if (isImportantFolder || item.starred) {
-            await prisma.question.updateMany({
-              where: { userId, questionText: qText },
-              data: { isFavorite: true },
-            });
+            await questionsCol.updateMany(
+              { userId, questionText: qText },
+              { $set: { isFavorite: true, updatedAt: new Date() } }
+            );
           }
           continue;
         }
@@ -162,36 +200,43 @@ export class ImportExportService {
         }));
 
         const isStarred = Boolean(item.starred) || isImportantFolder;
-        const collectionIds = isStarred && importantCollection ? [importantCollection.id] : [];
+        const importantIdStr = importantCollection._id?.toString() || importantCollection.id;
+        const collectionIds = isStarred && importantIdStr ? [importantIdStr] : [];
 
-        await prisma.question.create({
-          data: {
-            userId,
-            questionText: qText,
-            explanation: item.explanation || null,
-            difficulty: "MEDIUM",
-            questionDate: currentSectionDate || new Date(),
-            source: folderName,
-            isFavorite: isStarred,
-            isArchived: false,
-            topicId: topic.id,
-            categoryId,
-            collectionIds,
-            tagIds: [],
-            options,
-            progress: {
-              create: {
-                userId,
-                attemptCount: 0,
-                correctCount: 0,
-                incorrectCount: 0,
-                accuracy: 0,
-                masteryLevel: 0,
-                easeFactor: 2.5,
-                intervalDays: 0,
-              },
-            },
-          },
+        const questionDoc = {
+          userId,
+          questionText: qText,
+          explanation: item.explanation || null,
+          difficulty: "MEDIUM" as const,
+          questionDate: currentSectionDate || new Date(),
+          source: folderName,
+          isFavorite: isStarred,
+          isArchived: false,
+          topicId,
+          categoryId,
+          collectionIds,
+          tagIds: [],
+          options,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        const res = await questionsCol.insertOne(questionDoc);
+        const qId = res.insertedId.toString();
+
+        await progressCol.insertOne({
+          userId,
+          questionId: qId,
+          attemptCount: 0,
+          correctCount: 0,
+          incorrectCount: 0,
+          accuracy: 0,
+          currentStreak: 0,
+          masteryLevel: 0,
+          easeFactor: 2.5,
+          intervalDays: 0,
+          createdAt: now,
+          updatedAt: now,
         });
 
         existingSet.add(normalizedQ);
@@ -206,32 +251,41 @@ export class ImportExportService {
    * Exports questions to a portable JSON backup.
    */
   static async exportQuestionsJson(userId: string, filter?: { collectionId?: string; topicId?: string }) {
-    const where: any = { userId };
-    if (filter?.collectionId) where.collectionIds = { has: filter.collectionId };
-    if (filter?.topicId) where.topicId = filter.topicId;
+    const questionsCol = await getQuestionsCol();
+    const query: any = { userId };
+    if (filter?.collectionId) query.collectionIds = filter.collectionId;
+    if (filter?.topicId) query.topicId = filter.topicId;
 
-    const questions = await prisma.question.findMany({
-      where,
-      include: {
-        topic: true,
-        category: true,
-        tags: true,
-      },
-      orderBy: { createdAt: "asc" },
-    });
+    const rawQuestions = await questionsCol.find(query).sort({ createdAt: 1 }).toArray();
+
+    const [topicsCol, categoriesCol] = await Promise.all([
+      getTopicsCol(),
+      getCategoriesCol(),
+    ]);
+
+    const topicIds = rawQuestions.map((q) => q.topicId).filter((id): id is string => Boolean(id)).map(toObjectId);
+    const categoryIds = rawQuestions.map((q) => q.categoryId).filter((id): id is string => Boolean(id)).map(toObjectId);
+
+    const [topics, categories] = await Promise.all([
+      topicsCol.find({ _id: { $in: topicIds } }).toArray(),
+      categoriesCol.find({ _id: { $in: categoryIds } }).toArray(),
+    ]);
+
+    const topicMap = new Map(topics.map((t) => [t._id.toString(), t.name]));
+    const catMap = new Map(categories.map((c) => [c._id.toString(), c.name]));
 
     return {
       exportedAt: new Date().toISOString(),
-      count: questions.length,
-      questions: questions.map((q) => ({
-        id: q.id,
+      count: rawQuestions.length,
+      questions: rawQuestions.map((q) => ({
+        id: q._id.toString(),
         question: q.questionText,
         explanation: q.explanation,
         difficulty: q.difficulty,
         questionDate: q.questionDate,
-        topic: q.topic?.name || null,
-        category: q.category?.name || null,
-        tags: q.tags.map((t) => t.name),
+        topic: q.topicId ? topicMap.get(q.topicId) || null : null,
+        category: q.categoryId ? catMap.get(q.categoryId) || null : null,
+        tags: [],
         isFavorite: q.isFavorite,
         options: q.options.map((o) => ({
           text: o.optionText,

@@ -1,19 +1,28 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/server/auth/session";
 import { TaxonomyService } from "@/server/services/taxonomy.service";
-import { prisma } from "@/server/db";
+import { getCollectionsCol, getQuestionsCol, formatDoc } from "@/server/db";
 
 export async function GET() {
   try {
     const user = await requireAuth();
-    const collections = await prisma.collection.findMany({
-      where: { userId: user.id },
-      orderBy: { name: "asc" },
-      include: {
-        _count: { select: { questions: true } },
-      },
-    });
-    return NextResponse.json(collections);
+    const collectionsCol = await getCollectionsCol();
+    const questionsCol = await getQuestionsCol();
+
+    const rawCollections = await collectionsCol.find({ userId: user.id }).sort({ name: 1 }).toArray();
+
+    const collectionsWithCounts = await Promise.all(
+      rawCollections.map(async (c) => {
+        const colId = c._id ? c._id.toString() : c.id;
+        const count = await questionsCol.countDocuments({ userId: user.id, collectionIds: colId });
+        return {
+          ...formatDoc(c),
+          _count: { questions: count },
+        };
+      })
+    );
+
+    return NextResponse.json(collectionsWithCounts);
   } catch (error: any) {
     const status = error.message === "UNAUTHORIZED" ? 401 : 400;
     return NextResponse.json({ error: error.message }, { status });

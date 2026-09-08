@@ -1,4 +1,13 @@
-import { prisma } from "@/server/db";
+import {
+  getAIProviderConfigsCol,
+  getAIDraftsCol,
+  getAIUsageLogsCol,
+  getTopicsCol,
+  getCategoriesCol,
+  toObjectId,
+  formatDoc,
+  formatDocs,
+} from "@/server/db";
 import { encryptApiKey, decryptApiKey, maskApiKey } from "@/server/encryption/crypto";
 import { GeminiProvider } from "@/server/providers/gemini.provider";
 import { OpenAIProvider } from "@/server/providers/openai.provider";
@@ -29,13 +38,11 @@ export class AIService {
    * Retrieves all configured AI providers for the user (with masked keys for security).
    */
   static async getUserConfigs(userId: string) {
-    const configs = await prisma.aIProviderConfig.findMany({
-      where: { userId },
-      orderBy: { createdAt: "asc" },
-    });
+    const col = await getAIProviderConfigsCol();
+    const configs = await col.find({ userId }).sort({ createdAt: 1 }).toArray();
 
     return configs.map((c) => ({
-      id: c.id,
+      id: c._id ? c._id.toString() : c.id,
       provider: c.provider,
       maskedKey: maskApiKey(
         decryptApiKey({
@@ -56,47 +63,40 @@ export class AIService {
    */
   static async saveConfig(userId: string, input: AIConfigInput) {
     const { encryptedKey, iv, tag } = encryptApiKey(input.apiKey);
+    const col = await getAIProviderConfigsCol();
+    const now = new Date();
 
     // If marked default, unset other defaults
     if (input.isDefault) {
-      await prisma.aIProviderConfig.updateMany({
-        where: { userId },
-        data: { isDefault: false },
-      });
+      await col.updateMany({ userId }, { $set: { isDefault: false } });
     }
 
-    const config = await prisma.aIProviderConfig.upsert({
-      where: {
-        userId_provider: {
-          userId,
-          provider: input.provider,
-        },
+    const updateDoc = {
+      userId,
+      provider: input.provider,
+      encryptedKey,
+      iv,
+      tag,
+      defaultModel: input.defaultModel,
+      isDefault: input.isDefault,
+      isEnabled: true,
+      updatedAt: now,
+    };
+
+    const res = await col.findOneAndUpdate(
+      { userId, provider: input.provider },
+      {
+        $set: updateDoc,
+        $setOnInsert: { createdAt: now },
       },
-      create: {
-        userId,
-        provider: input.provider,
-        encryptedKey,
-        iv,
-        tag,
-        defaultModel: input.defaultModel,
-        isDefault: input.isDefault,
-        isEnabled: true,
-      },
-      update: {
-        encryptedKey,
-        iv,
-        tag,
-        defaultModel: input.defaultModel,
-        isDefault: input.isDefault,
-        isEnabled: true,
-      },
-    });
+      { upsert: true, returnDocument: "after" }
+    );
 
     return {
-      id: config.id,
-      provider: config.provider,
-      defaultModel: config.defaultModel,
-      isDefault: config.isDefault,
+      id: res?._id?.toString(),
+      provider: res?.provider,
+      defaultModel: res?.defaultModel,
+      isDefault: res?.isDefault,
     };
   }
 
@@ -112,22 +112,16 @@ export class AIService {
    * Generates questions using the user's selected provider and saves them as DRAFTS for review.
    */
   static async generateQuestions(userId: string, input: AIGenerateRequest) {
+    const col = await getAIProviderConfigsCol();
+
     // Find provider config
     let config = null;
     if (input.provider) {
-      config = await prisma.aIProviderConfig.findUnique({
-        where: {
-          userId_provider: { userId, provider: input.provider },
-        },
-      });
+      config = await col.findOne({ userId, provider: input.provider });
     } else {
-      config = await prisma.aIProviderConfig.findFirst({
-        where: { userId, isDefault: true, isEnabled: true },
-      });
+      config = await col.findOne({ userId, isDefault: true, isEnabled: true });
       if (!config) {
-        config = await prisma.aIProviderConfig.findFirst({
-          where: { userId, isEnabled: true },
-        });
+        config = await col.findOne({ userId, isEnabled: true });
       }
     }
 
@@ -148,6 +142,9 @@ export class AIService {
     const activeModel = input.model || config.defaultModel;
 
     const startTime = Date.now();
+    const logsCol = await getAIUsageLogsCol();
+    const draftsCol = await getAIDraftsCol();
+
     try {
       const generated = await providerInstance.generateQuestions(
         rawApiKey,
@@ -164,58 +161,60 @@ export class AIService {
       );
 
       const durationMs = Date.now() - startTime;
+      const now = new Date();
 
       // Save drafts to database
-      const drafts = await Promise.all(
-        generated.map((q) =>
-          prisma.aIDraftQuestion.create({
-            data: {
-              userId,
-              prompt: input.prompt,
-              questionText: q.question,
-              optionsJson: q.options.map((opt, idx) => ({
-                id: `opt_${idx + 1}`,
-                optionText: opt,
-                optionOrder: idx,
-                isCorrect: idx === q.correctOptionIndex,
-              })),
-              explanation: q.explanation || "",
-              topic: q.topic || input.topic || "General",
-              category: q.category || input.category || "General",
-              difficulty: q.difficulty || input.difficulty || "MEDIUM",
-              tagsJson: q.tags || [],
-              relatedJson: q.relatedQuestions || [],
-              status: "DRAFT",
-            },
-          })
-        )
-      );
+      const draftDocs = generated.map((q) => ({
+        userId,
+        prompt: input.prompt,
+        questionText: q.question,
+        optionsJson: q.options.map((opt, idx) => ({
+          id: `opt_${idx + 1}`,
+          optionText: opt,
+          optionOrder: idx,
+          isCorrect: idx === q.correctOptionIndex,
+        })),
+        explanation: q.explanation || "",
+        topic: q.topic || input.topic || "General",
+        category: q.category || input.category || "General",
+        difficulty: q.difficulty || input.difficulty || "MEDIUM",
+        tagsJson: q.tags || [],
+        relatedJson: q.relatedQuestions || [],
+        status: "DRAFT" as const,
+        createdAt: now,
+        updatedAt: now,
+      }));
+
+      const insertRes = await draftsCol.insertMany(draftDocs);
+      const insertedDrafts = draftDocs.map((doc, idx) => ({
+        ...doc,
+        _id: insertRes.insertedIds[idx],
+        id: insertRes.insertedIds[idx].toString(),
+      }));
 
       // Log usage
-      await prisma.aIUsageLog.create({
-        data: {
-          userId,
-          provider: config.provider,
-          model: activeModel,
-          durationMs,
-          questionCount: drafts.length,
-          status: "SUCCESS",
-        },
+      await logsCol.insertOne({
+        userId,
+        provider: config.provider,
+        model: activeModel,
+        durationMs,
+        questionCount: insertedDrafts.length,
+        status: "SUCCESS",
+        createdAt: now,
       });
 
-      return drafts;
+      return formatDocs(insertedDrafts);
     } catch (error: any) {
       const durationMs = Date.now() - startTime;
-      await prisma.aIUsageLog.create({
-        data: {
-          userId,
-          provider: config.provider,
-          model: activeModel,
-          durationMs,
-          questionCount: 0,
-          status: "FAILED",
-          errorMessage: error.message,
-        },
+      await logsCol.insertOne({
+        userId,
+        provider: config.provider,
+        model: activeModel,
+        durationMs,
+        questionCount: 0,
+        status: "FAILED",
+        errorMessage: error.message,
+        createdAt: new Date(),
       });
       throw error;
     }
@@ -225,19 +224,17 @@ export class AIService {
    * Retrieves pending draft questions for user review.
    */
   static async getDrafts(userId: string) {
-    return prisma.aIDraftQuestion.findMany({
-      where: { userId, status: "DRAFT" },
-      orderBy: { createdAt: "desc" },
-    });
+    const col = await getAIDraftsCol();
+    const drafts = await col.find({ userId, status: "DRAFT" }).sort({ createdAt: -1 }).toArray();
+    return formatDocs(drafts);
   }
 
   /**
    * Approves an AI draft and moves it directly into the user's permanent question library.
    */
   static async approveDraft(userId: string, draftId: string) {
-    const draft = await prisma.aIDraftQuestion.findFirst({
-      where: { id: draftId, userId },
-    });
+    const draftsCol = await getAIDraftsCol();
+    const draft = await draftsCol.findOne({ _id: toObjectId(draftId), userId });
 
     if (!draft) throw new Error("Draft not found");
 
@@ -246,23 +243,44 @@ export class AIService {
     // Ensure topic exists or create it
     let topicId = null;
     if (draft.topic) {
-      const topic = await prisma.topic.upsert({
-        where: { userId_name: { userId, name: draft.topic } },
-        create: { userId, name: draft.topic, slug: draft.topic.toLowerCase().replace(/\s+/g, "-") },
-        update: {},
-      });
-      topicId = topic.id;
+      const topicsCol = await getTopicsCol();
+      const slug = draft.topic.toLowerCase().replace(/\s+/g, "-");
+      const topic = await topicsCol.findOneAndUpdate(
+        { userId, name: draft.topic },
+        {
+          $setOnInsert: {
+            userId,
+            name: draft.topic,
+            slug,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        },
+        { upsert: true, returnDocument: "after" }
+      );
+      topicId = topic?._id?.toString() || null;
     }
 
     // Ensure category exists or create it
     let categoryId = null;
     if (draft.category) {
-      const category = await prisma.category.upsert({
-        where: { userId_name: { userId, name: draft.category } },
-        create: { userId, name: draft.category, slug: draft.category.toLowerCase().replace(/\s+/g, "-"), topicId },
-        update: {},
-      });
-      categoryId = category.id;
+      const categoriesCol = await getCategoriesCol();
+      const slug = draft.category.toLowerCase().replace(/\s+/g, "-");
+      const cat = await categoriesCol.findOneAndUpdate(
+        { userId, name: draft.category },
+        {
+          $setOnInsert: {
+            userId,
+            name: draft.category,
+            slug,
+            topicId,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        },
+        { upsert: true, returnDocument: "after" }
+      );
+      categoryId = cat?._id?.toString() || null;
     }
 
     // Create the permanent Question
@@ -285,10 +303,10 @@ export class AIService {
     });
 
     // Mark draft as approved
-    await prisma.aIDraftQuestion.update({
-      where: { id: draftId },
-      data: { status: "APPROVED" },
-    });
+    await draftsCol.updateOne(
+      { _id: toObjectId(draftId) },
+      { $set: { status: "APPROVED", updatedAt: new Date() } }
+    );
 
     return question;
   }
@@ -297,9 +315,11 @@ export class AIService {
    * Rejects an AI draft.
    */
   static async rejectDraft(userId: string, draftId: string) {
-    return prisma.aIDraftQuestion.update({
-      where: { id: draftId, userId },
-      data: { status: "REJECTED" },
-    });
+    const draftsCol = await getAIDraftsCol();
+    await draftsCol.updateOne(
+      { _id: toObjectId(draftId), userId },
+      { $set: { status: "REJECTED", updatedAt: new Date() } }
+    );
+    return true;
   }
 }

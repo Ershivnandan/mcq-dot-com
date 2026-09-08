@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { prisma } from "../src/server/db";
+import { getUsersCol, getUserPreferencesCol, getMongoClient } from "../src/server/db";
 import { ImportExportService } from "../src/server/services/import-export.service";
 import { hashPassword } from "../src/server/auth/session";
 
@@ -18,33 +18,53 @@ async function main() {
   console.log(`Reading ${filePath}...`);
   const rawData = JSON.parse(fs.readFileSync(filePath, "utf-8"));
 
-  // Ensure a default user exists for CLI migration
-  let user = await prisma.user.findFirst();
+  const usersCol = await getUsersCol();
+  let user = await usersCol.findOne({});
+
   if (!user) {
     console.log("No user found in database. Creating default user (demo@mcqmanager.com)...");
     const passwordHash = await hashPassword("password123");
-    user = await prisma.user.create({
-      data: {
-        email: "demo@mcqmanager.com",
-        passwordHash,
-        name: "Demo Admin",
-        preference: {
-          create: {
-            theme: "system",
-            defaultQuizMode: "PRACTICE",
-            defaultQuestionCount: 20,
-          },
-        },
-      },
+    const now = new Date();
+    const insertRes = await usersCol.insertOne({
+      email: "demo@mcqmanager.com",
+      passwordHash,
+      name: "Demo Admin",
+      createdAt: now,
+      updatedAt: now,
     });
+    const userId = insertRes.insertedId.toString();
+
+    const prefsCol = await getUserPreferencesCol();
+    await prefsCol.insertOne({
+      userId,
+      theme: "system",
+      defaultQuizMode: "PRACTICE",
+      defaultQuestionCount: 20,
+      shuffleOptions: true,
+      shuffleQuestions: true,
+      spacedRepetition: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    user = {
+      _id: insertRes.insertedId,
+      id: userId,
+      email: "demo@mcqmanager.com",
+      passwordHash,
+      name: "Demo Admin",
+      createdAt: now,
+      updatedAt: now,
+    };
     console.log(`Created default user: ${user.email} (password: password123)`);
   } else {
-    console.log(`Using existing user: ${user.email} (${user.id})`);
+    console.log(`Using existing user: ${user.email} (${user._id?.toString()})`);
   }
 
+  const userId = user._id ? user._id.toString() : user.id || "";
   console.log("\nStarting intelligent import with date header parsing...");
   const startTime = Date.now();
-  const summary = await ImportExportService.importBackupJson(user.id, rawData);
+  const summary = await ImportExportService.importBackupJson(userId, rawData);
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
 
   console.log("\n==========================================");
@@ -66,5 +86,6 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    const client = await getMongoClient();
+    await client.close();
   });
