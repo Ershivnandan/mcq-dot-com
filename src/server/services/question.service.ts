@@ -39,8 +39,16 @@ export class QuestionService {
     // Date range filter on questionDate
     if (query.dateFrom || query.dateTo) {
       filter.questionDate = {};
-      if (query.dateFrom) filter.questionDate.$gte = new Date(query.dateFrom);
-      if (query.dateTo) filter.questionDate.$lte = new Date(query.dateTo);
+      if (query.dateFrom) {
+        const fromDate = new Date(query.dateFrom);
+        fromDate.setHours(0, 0, 0, 0);
+        filter.questionDate.$gte = fromDate;
+      }
+      if (query.dateTo) {
+        const toDate = new Date(query.dateTo);
+        toDate.setHours(23, 59, 59, 999);
+        filter.questionDate.$lte = toDate;
+      }
     }
 
     // Search query across questionText, explanation, notes, source
@@ -54,16 +62,22 @@ export class QuestionService {
       ];
     }
 
-    // Sorting
+    // Sorting: if date filter is active or sortBy is questionDate, sort by questionDate ascending
+    const hasDateFilter = Boolean(query.dateFrom || query.dateTo);
+    const sortBy = query.sortBy || (hasDateFilter ? "questionDate" : "createdAt");
+    const defaultOrder = sortBy === "questionDate" ? "asc" : "desc";
+    const sortOrder = query.sortOrder || defaultOrder;
+    const dir = sortOrder === "asc" ? 1 : -1;
+
     const sortObj: any = {};
-    const dir = query.sortOrder === "asc" ? 1 : -1;
-    if (query.sortBy === "questionDate") {
+    if (sortBy === "questionDate") {
       sortObj.questionDate = dir;
-    } else if (query.sortBy === "updatedAt") {
+      sortObj.createdAt = 1;
+    } else if (sortBy === "updatedAt") {
       sortObj.updatedAt = dir;
-    } else if (query.sortBy === "alphabetical") {
+    } else if (sortBy === "alphabetical") {
       sortObj.questionText = dir;
-    } else if (query.sortBy === "difficulty") {
+    } else if (sortBy === "difficulty") {
       sortObj.difficulty = dir;
     } else {
       sortObj.createdAt = dir;

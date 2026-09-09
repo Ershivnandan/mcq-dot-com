@@ -6,11 +6,18 @@ import {
   PlusCircle,
   Download,
   HelpCircle,
-  ChevronLeft,
-  ChevronRight,
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { QuestionCard } from "@/components/questions/question-card";
 import { QuestionTable } from "@/components/questions/question-table";
 import { QuestionFilterBar } from "@/components/questions/question-filter-bar";
@@ -224,39 +231,70 @@ export default function QuestionsPage() {
         />
       )}
 
-      {/* Pagination Controls */}
+      {/* Shadcn Pagination Controls */}
       {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between border-t pt-4 text-xs">
-          <p className="text-muted-foreground">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t pt-4 text-xs">
+          <p className="text-muted-foreground order-2 sm:order-1 text-center sm:text-left">
             Showing Page <span className="font-bold text-foreground">{pagination.page}</span> of{" "}
             <span className="font-bold text-foreground">{pagination.totalPages}</span> ({pagination.total} questions)
           </p>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => dispatch(setPage(Math.max(1, pagination.page - 1)))}
-              disabled={pagination.page <= 1}
-              className="gap-1"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              <span>Previous</span>
-            </Button>
+          <Pagination className="order-1 sm:order-2 justify-center sm:justify-end w-auto mx-0">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => dispatch(setPage(Math.max(1, pagination.page - 1)))}
+                  disabled={pagination.page <= 1}
+                />
+              </PaginationItem>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                dispatch(setPage(Math.min(pagination.totalPages, pagination.page + 1)))
-              }
-              disabled={pagination.page >= pagination.totalPages}
-              className="gap-1"
-            >
-              <span>Next</span>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+              {(() => {
+                const total = pagination.totalPages;
+                const current = pagination.page;
+                let items: (number | string)[] = [];
+
+                if (total <= 7) {
+                  items = Array.from({ length: total }, (_, i) => i + 1);
+                } else if (current <= 4) {
+                  items = [1, 2, 3, 4, 5, "ellipsis-end", total];
+                } else if (current >= total - 3) {
+                  items = [1, "ellipsis-start", total - 4, total - 3, total - 2, total - 1, total];
+                } else {
+                  items = [1, "ellipsis-start", current - 1, current, current + 1, "ellipsis-end", total];
+                }
+
+                return items.map((item, idx) => {
+                  if (typeof item === "string") {
+                    return (
+                      <PaginationItem key={`${item}-${idx}`}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    );
+                  }
+
+                  return (
+                    <PaginationItem key={item}>
+                      <PaginationLink
+                        isActive={item === current}
+                        onClick={() => dispatch(setPage(item))}
+                      >
+                        {item}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                });
+              })()}
+
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() =>
+                    dispatch(setPage(Math.min(pagination.totalPages, pagination.page + 1)))
+                  }
+                  disabled={pagination.page >= pagination.totalPages}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
       )}
 

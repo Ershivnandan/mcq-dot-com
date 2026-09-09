@@ -11,6 +11,8 @@ export interface QuestionFiltersQueryParams {
   isArchived?: boolean;
   dateFrom?: string;
   dateTo?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
   page?: number;
   limit?: number;
 }
@@ -38,6 +40,8 @@ async function fetchQuestions(
   if (params.isArchived) urlParams.set("isArchived", "true");
   if (params.dateFrom) urlParams.set("dateFrom", params.dateFrom);
   if (params.dateTo) urlParams.set("dateTo", params.dateTo);
+  if (params.sortBy) urlParams.set("sortBy", params.sortBy);
+  if (params.sortOrder) urlParams.set("sortOrder", params.sortOrder);
   urlParams.set("page", String(params.page || 1));
   urlParams.set("limit", String(params.limit || 20));
 

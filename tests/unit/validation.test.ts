@@ -4,6 +4,7 @@ import {
   SignUpSchema,
   CreateQuizSchema,
   AIGeneratedResponseSchema,
+  QuestionQuerySchema,
 } from "@/lib/validation/schemas";
 
 describe("Zod Validation Schemas", () => {
@@ -69,5 +70,24 @@ describe("Zod Validation Schemas", () => {
     };
     const result = AIGeneratedResponseSchema.safeParse(aiOutput);
     expect(result.success).toBe(true);
+  });
+
+  it("validates question query schema with date range and ascending sort", () => {
+    const query = {
+      dateFrom: "2026-06-01",
+      dateTo: "2026-06-30",
+      sortBy: "questionDate",
+      sortOrder: "asc",
+      page: "1",
+      limit: "20",
+    };
+    const result = QuestionQuerySchema.safeParse(query);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.dateFrom).toBe("2026-06-01");
+      expect(result.data.dateTo).toBe("2026-06-30");
+      expect(result.data.sortBy).toBe("questionDate");
+      expect(result.data.sortOrder).toBe("asc");
+    }
   });
 });
