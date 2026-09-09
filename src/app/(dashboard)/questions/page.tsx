@@ -13,7 +13,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function QuestionsPage() {
   const [questions, setQuestions] = React.useState<any[]>([]);
   const [topics, setTopics] = React.useState<any[]>([]);
-  const [categories, setCategories] = React.useState<any[]>([]);
   const [pagination, setPagination] = React.useState({ total: 0, page: 1, limit: 20, totalPages: 1 });
   const [loading, setLoading] = React.useState(true);
 
@@ -21,7 +20,6 @@ export default function QuestionsPage() {
   const [filters, setFilters] = React.useState<FilterState>({
     search: "",
     topicId: "",
-    categoryId: "",
     difficulty: "",
     isFavorite: false,
     isArchived: false,
@@ -33,15 +31,14 @@ export default function QuestionsPage() {
   // Bulk selection state
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
 
-  // Load topics & categories
+  // Load topics
   React.useEffect(() => {
-    Promise.all([
-      fetch("/api/topics").then((r) => r.json()).catch(() => []),
-      fetch("/api/categories").then((r) => r.json()).catch(() => []),
-    ]).then(([t, c]) => {
-      if (Array.isArray(t)) setTopics(t);
-      if (Array.isArray(c)) setCategories(c);
-    });
+    fetch("/api/topics")
+      .then((r) => r.json())
+      .then((t) => {
+        if (Array.isArray(t)) setTopics(t);
+      })
+      .catch(() => []);
   }, []);
 
   // Fetch questions on filter or page change
@@ -51,7 +48,6 @@ export default function QuestionsPage() {
       const params = new URLSearchParams();
       if (filters.search) params.set("search", filters.search);
       if (filters.topicId) params.set("topicId", filters.topicId);
-      if (filters.categoryId) params.set("categoryId", filters.categoryId);
       if (filters.difficulty) params.set("difficulty", filters.difficulty);
       if (filters.isFavorite) params.set("isFavorite", "true");
       if (filters.isArchived) params.set("isArchived", "true");
@@ -123,7 +119,7 @@ export default function QuestionsPage() {
     }
   };
 
-  const handleBulkAction = async (action: "favorite" | "archive" | "delete" | "add_to_collection") => {
+  const handleBulkAction = async (action: "favorite" | "archive" | "delete") => {
     try {
       const res = await fetch("/api/questions/bulk", {
         method: "POST",
@@ -186,7 +182,6 @@ export default function QuestionsPage() {
           setPagination((p) => ({ ...p, page: 1 }));
         }}
         topics={topics}
-        categories={categories}
       />
 
       {/* Questions Display */}

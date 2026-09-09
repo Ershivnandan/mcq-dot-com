@@ -3,7 +3,6 @@ import {
   getAIDraftsCol,
   getAIUsageLogsCol,
   getTopicsCol,
-  getCategoriesCol,
   toObjectId,
   formatDoc,
   formatDocs,
@@ -51,7 +50,10 @@ export class AIService {
           tag: c.tag,
         })
       ),
-      defaultModel: c.defaultModel,
+      defaultModel:
+        c.provider === "GEMINI" && (c.defaultModel?.startsWith("gemini-2.") || c.defaultModel?.startsWith("gemini-1."))
+          ? "gemini-3.6-flash"
+          : c.defaultModel,
       isDefault: c.isDefault,
       isEnabled: c.isEnabled,
       detectedModels: (c as any).detectedModels || [],
@@ -330,35 +332,12 @@ export class AIService {
       topicId = topic?._id?.toString() || null;
     }
 
-    // Ensure category exists or create it
-    let categoryId = null;
-    if (draft.category) {
-      const categoriesCol = await getCategoriesCol();
-      const slug = draft.category.toLowerCase().replace(/\s+/g, "-");
-      const cat = await categoriesCol.findOneAndUpdate(
-        { userId, name: draft.category },
-        {
-          $setOnInsert: {
-            userId,
-            name: draft.category,
-            slug,
-            topicId,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        },
-        { upsert: true, returnDocument: "after" }
-      );
-      categoryId = cat?._id?.toString() || null;
-    }
-
     // Create the permanent Question
     const question = await QuestionService.createQuestion(userId, {
       questionText: draft.questionText,
       explanation: draft.explanation,
       difficulty: draft.difficulty as any,
       topicId,
-      categoryId,
       options: options.map((o: any, idx: number) => ({
         id: o.id || `opt_${idx + 1}`,
         optionText: o.optionText || o.text || "",
@@ -368,7 +347,6 @@ export class AIService {
       isFavorite: false,
       isArchived: false,
       tagIds: [],
-      collectionIds: [],
     });
 
     // Mark draft as approved

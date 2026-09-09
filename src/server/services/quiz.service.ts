@@ -32,8 +32,6 @@ export class QuizService {
       const filter: any = { userId, isArchived: false };
 
       if (data.topicId) filter.topicId = data.topicId;
-      if (data.categoryId) filter.categoryId = data.categoryId;
-      if (data.collectionId) filter.collectionIds = data.collectionId;
       if (data.difficulty) filter.difficulty = data.difficulty;
       if (data.tagId) filter.tagIds = data.tagId;
       if (data.onlyFavorites) filter.isFavorite = true;

@@ -5,11 +5,11 @@ import { QuestionEditor } from "@/components/questions/question-editor";
 
 export default async function NewQuestionPage() {
   const user = await requireAuth();
-  const { topics, categories } = await TaxonomyService.getTaxonomies(user.id);
+  const { topics } = await TaxonomyService.getTaxonomies(user.id);
 
   return (
     <div className="space-y-6">
-      <QuestionEditor topics={topics} categories={categories} />
+      <QuestionEditor topics={topics} />
     </div>
   );
 }

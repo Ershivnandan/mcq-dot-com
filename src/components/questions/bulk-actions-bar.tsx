@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 interface BulkActionsBarProps {
   selectedCount: number;
   onClear: () => void;
-  onAction: (action: "favorite" | "archive" | "delete" | "add_to_collection") => void;
+  onAction: (action: "favorite" | "archive" | "delete") => void;
 }
 
 export function BulkActionsBar({
@@ -43,16 +43,6 @@ export function BulkActionsBar({
       >
         <Archive className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">Archive</span>
-      </Button>
-
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => onAction("add_to_collection")}
-        className="h-8 gap-1 text-xs"
-      >
-        <FolderPlus className="h-3.5 w-3.5 text-blue-500" />
-        <span className="hidden sm:inline">Collection</span>
       </Button>
 
       <Button

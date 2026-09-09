@@ -1,9 +1,6 @@
 import {
   getQuestionsCol,
   getTopicsCol,
-  getCategoriesCol,
-  getTagsCol,
-  getCollectionsCol,
   getQuestionProgressCol,
   toObjectId,
   formatDoc,
@@ -35,10 +32,9 @@ export class QuestionService {
 
     // Specific filters
     if (query.topicId) filter.topicId = query.topicId;
-    if (query.categoryId) filter.categoryId = query.categoryId;
     if (query.difficulty) filter.difficulty = query.difficulty;
     if (query.tagId) filter.tagIds = query.tagId;
-    if (query.collectionId) filter.collectionIds = query.collectionId;
+
 
     // Date range filter on questionDate
     if (query.dateFrom || query.dateTo) {
@@ -104,23 +100,19 @@ export class QuestionService {
     if (questions.length === 0) return [];
 
     const topicIds = questions.map((q) => q.topicId).filter(Boolean).map(toObjectId);
-    const categoryIds = questions.map((q) => q.categoryId).filter(Boolean).map(toObjectId);
     const questionStringIds = questions.map((q) => q._id?.toString() || q.id);
 
-    const [topicsCol, categoriesCol, progressCol] = await Promise.all([
+    const [topicsCol, progressCol] = await Promise.all([
       getTopicsCol(),
-      getCategoriesCol(),
       getQuestionProgressCol(),
     ]);
 
-    const [topics, categories, progressList] = await Promise.all([
+    const [topics, progressList] = await Promise.all([
       topicsCol.find({ _id: { $in: topicIds } }).toArray(),
-      categoriesCol.find({ _id: { $in: categoryIds } }).toArray(),
       progressCol.find({ questionId: { $in: questionStringIds }, userId }).toArray(),
     ]);
 
     const topicMap = new Map(topics.map((t) => [t._id?.toString(), t]));
-    const catMap = new Map(categories.map((c) => [c._id?.toString(), c]));
     const progressMap = new Map(progressList.map((p) => [p.questionId, p]));
 
     return questions.map((q) => {
@@ -129,11 +121,11 @@ export class QuestionService {
         ...q,
         id: qId,
         topic: q.topicId ? formatDoc(topicMap.get(q.topicId) || null) : null,
-        category: q.categoryId ? formatDoc(catMap.get(q.categoryId) || null) : null,
         progress: formatDoc(progressMap.get(qId) || null),
       };
     });
   }
+
 
   /**
    * Retrieves a single question by ID ensuring user ownership.
@@ -175,9 +167,7 @@ export class QuestionService {
       isFavorite: data.isFavorite ?? false,
       isArchived: data.isArchived ?? false,
       topicId: data.topicId || null,
-      categoryId: data.categoryId || null,
       tagIds: data.tagIds || [],
-      collectionIds: data.collectionIds || [],
       options,
       createdAt: now,
       updatedAt: now,
@@ -233,9 +223,7 @@ export class QuestionService {
       isFavorite: data.isFavorite ?? false,
       isArchived: data.isArchived ?? false,
       topicId: data.topicId || null,
-      categoryId: data.categoryId || null,
       tagIds: data.tagIds || [],
-      collectionIds: data.collectionIds || [],
       options,
       updatedAt: now,
     };
@@ -322,19 +310,6 @@ export class QuestionService {
         const res = await col.updateMany(filter, { $set: { topicId: payload?.topicId || null, updatedAt: new Date() } });
         return { count: res.modifiedCount };
       }
-      case "set_category": {
-        const res = await col.updateMany(filter, { $set: { categoryId: payload?.categoryId || null, updatedAt: new Date() } });
-        return { count: res.modifiedCount };
-      }
-      case "add_to_collection":
-        if (payload?.collectionId) {
-          const res = await col.updateMany(filter, {
-            $addToSet: { collectionIds: payload.collectionId },
-            $set: { updatedAt: new Date() },
-          });
-          return { count: res.modifiedCount };
-        }
-        break;
     }
 
     return { count: 0 };

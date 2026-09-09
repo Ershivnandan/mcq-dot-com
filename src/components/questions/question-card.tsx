@@ -20,7 +20,6 @@ export interface QuestionCardProps {
     isFavorite: boolean;
     isArchived: boolean;
     topic?: { name: string } | null;
-    category?: { name: string } | null;
     options: Array<{
       id: string;
       optionText: string;
@@ -80,11 +79,6 @@ export function QuestionCard({
             {question.topic && (
               <Badge variant="secondary" className="font-medium">
                 {question.topic.name}
-              </Badge>
-            )}
-            {question.category && (
-              <Badge variant="outline" className="text-muted-foreground text-[11px]">
-                {question.category.name}
               </Badge>
             )}
             {question.questionDate && (

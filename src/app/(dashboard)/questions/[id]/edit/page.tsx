@@ -20,14 +20,13 @@ export default async function EditQuestionPage({
     notFound();
   }
 
-  const { topics, categories } = await TaxonomyService.getTaxonomies(user.id);
+  const { topics } = await TaxonomyService.getTaxonomies(user.id);
 
   return (
     <div className="space-y-6">
       <QuestionEditor
         initialData={question}
         topics={topics}
-        categories={categories}
         isEditing
       />
     </div>

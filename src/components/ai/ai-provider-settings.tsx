@@ -30,6 +30,7 @@ import {
   PROVIDER_MODELS_MAP,
   GEMINI_MODELS,
   AIModelOption,
+  DEFAULT_GEMINI_MODEL,
 } from "@/lib/constants/ai-models";
 
 interface ProviderConfig {
@@ -55,7 +56,7 @@ export function AIProviderSettings() {
   const availableModels: AIModelOption[] =
     PROVIDER_MODELS_MAP[selectedProvider] || GEMINI_MODELS;
 
-  const [model, setModel] = React.useState<string>(availableModels[0]?.id || "gemini-2.5-flash");
+  const [model, setModel] = React.useState<string>(availableModels[0]?.id || DEFAULT_GEMINI_MODEL);
   const [isDefault, setIsDefault] = React.useState(true);
 
   const [testing, setTesting] = React.useState(false);

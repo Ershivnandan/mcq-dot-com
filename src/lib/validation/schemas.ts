@@ -41,9 +41,7 @@ export const QuestionInputSchema = z.object({
   isFavorite: z.boolean().default(false),
   isArchived: z.boolean().default(false),
   topicId: z.string().optional().nullable(),
-  categoryId: z.string().optional().nullable(),
   tagIds: z.array(z.string()).default([]),
-  collectionIds: z.array(z.string()).default([]),
   options: z.array(QuestionOptionSchema).min(2, "Questions must have at least 2 options"),
 }).refine(
   (data) => data.options.some((opt) => opt.isCorrect),
@@ -53,7 +51,7 @@ export const QuestionInputSchema = z.object({
 // Bulk Questions Schema
 export const BulkQuestionActionSchema = z.object({
   questionIds: z.array(z.string()).min(1, "Select at least one question"),
-  action: z.enum(["delete", "favorite", "unfavorite", "archive", "restore", "add_to_collection", "remove_from_collection", "set_difficulty", "set_topic", "set_category"]),
+  action: z.enum(["delete", "favorite", "unfavorite", "archive", "restore", "set_difficulty", "set_topic"]),
   payload: z.any().optional(),
 });
 
@@ -61,9 +59,7 @@ export const BulkQuestionActionSchema = z.object({
 export const QuestionQuerySchema = z.object({
   search: z.string().optional(),
   topicId: z.string().optional(),
-  categoryId: z.string().optional(),
   tagId: z.string().optional(),
-  collectionId: z.string().optional(),
   difficulty: DifficultyEnum.optional(),
   isFavorite: z.string().transform((v) => v === "true").optional(),
   isArchived: z.string().transform((v) => v === "true").optional(),
@@ -87,8 +83,6 @@ export const CreateQuizSchema = z.object({
   questionCount: z.number().int().min(1).max(200).default(20),
   // Selection criteria
   topicId: z.string().optional().nullable(),
-  categoryId: z.string().optional().nullable(),
-  collectionId: z.string().optional().nullable(),
   difficulty: DifficultyEnum.optional().nullable(),
   tagId: z.string().optional().nullable(),
   onlyFavorites: z.boolean().default(false),
@@ -96,6 +90,7 @@ export const CreateQuizSchema = z.object({
   dueForReviewOnly: z.boolean().default(false),
   specificQuestionIds: z.array(z.string()).optional(),
 });
+
 
 // Submit Quiz Attempt Schema
 export const SubmitQuizAttemptSchema = z.object({

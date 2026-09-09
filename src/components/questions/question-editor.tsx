@@ -59,18 +59,15 @@ interface QuestionEditorProps {
     notes?: string | null;
     isFavorite: boolean;
     topicId?: string | null;
-    categoryId?: string | null;
     options: OptionItem[];
   };
   topics: Array<{ id: string; name: string }>;
-  categories: Array<{ id: string; name: string; topicId?: string | null }>;
   isEditing?: boolean;
 }
 
 export function QuestionEditor({
   initialData,
   topics,
-  categories,
   isEditing = false,
 }: QuestionEditorProps) {
   const router = useRouter();
@@ -91,7 +88,47 @@ export function QuestionEditor({
   const [notes, setNotes] = React.useState(initialData?.notes || "");
   const [isFavorite, setIsFavorite] = React.useState(initialData?.isFavorite || false);
   const [topicId, setTopicId] = React.useState(initialData?.topicId || "");
-  const [categoryId, setCategoryId] = React.useState(initialData?.categoryId || "");
+
+  // Topics management state
+  const [topicList, setTopicList] = React.useState(topics);
+  const [createTopicModalOpen, setCreateTopicModalOpen] = React.useState(false);
+  const [newTopicName, setNewTopicName] = React.useState("");
+  const [newTopicDesc, setNewTopicDesc] = React.useState("");
+  const [newTopicColor, setNewTopicColor] = React.useState("#6366f1");
+  const [creatingTopic, setCreatingTopic] = React.useState(false);
+  const [createTopicError, setCreateTopicError] = React.useState<string | null>(null);
+
+  const handleCreateTopic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTopicName.trim()) return;
+    setCreatingTopic(true);
+    setCreateTopicError(null);
+    try {
+      const res = await fetch("/api/topics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newTopicName.trim(),
+          description: newTopicDesc.trim() || undefined,
+          color: newTopicColor,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to create topic");
+      }
+      const created = await res.json();
+      setTopicList((prev) => [...prev, created]);
+      setTopicId(created.id);
+      setCreateTopicModalOpen(false);
+      setNewTopicName("");
+      setNewTopicDesc("");
+    } catch (err: any) {
+      setCreateTopicError(err.message || "Failed to create topic");
+    } finally {
+      setCreatingTopic(false);
+    }
+  };
 
   // AI Prompt Injection State
   const [aiModalOpen, setAiModalOpen] = React.useState(false);
@@ -269,7 +306,6 @@ export function QuestionEditor({
         notes: notes.trim() || null,
         isFavorite,
         topicId: topicId && topicId !== "none" ? topicId : null,
-        categoryId: categoryId && categoryId !== "none" ? categoryId : null,
         options: filledOptions,
       };
 
@@ -297,10 +333,6 @@ export function QuestionEditor({
       setLoading(false);
     }
   };
-
-  const availableCategories = topicId && topicId !== "none"
-    ? categories.filter((c) => c.topicId === topicId)
-    : categories;
 
   const activeModelDetails = GEMINI_MODELS.find((m) => m.id === aiModel);
 
@@ -483,36 +515,27 @@ export function QuestionEditor({
 
             {/* Metadata Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
-              {/* Topic */}
+              {/* Topic (with user-creation support) */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground">Topic</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-muted-foreground">Topic</label>
+                  <button
+                    type="button"
+                    onClick={() => setCreateTopicModalOpen(true)}
+                    className="text-[11px] text-primary hover:underline font-semibold"
+                  >
+                    + New Topic
+                  </button>
+                </div>
                 <Select value={topicId} onValueChange={setTopicId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select Topic" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {topics.map((t) => (
+                    <SelectItem value="none">None (No Topic)</SelectItem>
+                    {topicList.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         {t.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Category */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground">Category</label>
-                <Select value={categoryId} onValueChange={setCategoryId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {availableCategories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -750,6 +773,87 @@ export function QuestionEditor({
                     <span>Generate & Inject</span>
                   </>
                 )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* User-Created Topic Modal / Dialog */}
+      <Dialog open={createTopicModalOpen} onOpenChange={setCreateTopicModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold">Create New Topic</DialogTitle>
+            <DialogDescription className="text-xs">
+              Add a topic to categorize and organize your questions.
+            </DialogDescription>
+          </DialogHeader>
+
+          {createTopicError && (
+            <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-2.5 text-xs text-destructive font-medium">
+              {createTopicError}
+            </div>
+          )}
+
+          <form onSubmit={handleCreateTopic} className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">
+                Topic Name <span className="text-destructive">*</span>
+              </label>
+              <Input
+                placeholder="e.g. Modern Indian History, Network Security, Calculus..."
+                value={newTopicName}
+                onChange={(e) => setNewTopicName(e.target.value)}
+                className="h-9 text-sm"
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">
+                Description (Optional)
+              </label>
+              <Input
+                placeholder="Brief summary of what this topic covers"
+                value={newTopicDesc}
+                onChange={(e) => setNewTopicDesc(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">
+                Color Tag
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={newTopicColor}
+                  onChange={(e) => setNewTopicColor(e.target.value)}
+                  className="h-8 w-12 rounded border p-0.5 cursor-pointer bg-transparent"
+                />
+                <span className="text-xs text-muted-foreground font-mono">{newTopicColor}</span>
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setCreateTopicModalOpen(false)}
+                disabled={creatingTopic}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={creatingTopic || !newTopicName.trim()}
+                className="font-semibold"
+              >
+                {creatingTopic ? "Creating..." : "Create Topic"}
               </Button>
             </DialogFooter>
           </form>
