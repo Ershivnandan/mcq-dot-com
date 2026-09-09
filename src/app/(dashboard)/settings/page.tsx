@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 
 export default function SettingsHubPage() {
   const [importing, setImporting] = React.useState(false);
+  const [importStatus, setImportStatus] = React.useState<string | null>(null);
   const [importSummary, setImportSummary] = React.useState<any | null>(null);
   const [importError, setImportError] = React.useState<string | null>(null);
 
@@ -28,11 +29,27 @@ export default function SettingsHubPage() {
     setImporting(true);
     setImportSummary(null);
     setImportError(null);
+    setImportStatus("Reading and parsing JSON file...");
 
     const reader = new FileReader();
     reader.onload = async () => {
       try {
         const json = JSON.parse(reader.result as string);
+        const folderCount = Array.isArray(json.folders) ? json.folders.length : 0;
+        const questionCount = Array.isArray(json.questions)
+          ? json.questions.length
+          : Array.isArray(json.folders)
+          ? json.folders.reduce((acc: number, f: any) => acc + (f.questions?.length || 0), 0)
+          : Array.isArray(json)
+          ? json.length
+          : 0;
+
+        setImportStatus(
+          `Uploading and bulk-importing ${questionCount.toLocaleString()} questions${
+            folderCount ? ` across ${folderCount} folders` : ""
+          }...`
+        );
+
         const res = await fetch("/api/import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -49,7 +66,15 @@ export default function SettingsHubPage() {
         setImportError(err.message || "Failed to read or import file.");
       } finally {
         setImporting(false);
+        setImportStatus(null);
+        e.target.value = "";
       }
+    };
+    reader.onerror = () => {
+      setImportError("Failed to read file from disk.");
+      setImporting(false);
+      setImportStatus(null);
+      e.target.value = "";
     };
     reader.readAsText(file);
   };
@@ -121,6 +146,9 @@ export default function SettingsHubPage() {
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                 Automatically extracts date headers, normalizes options, merges duplicates, and links favorites.
               </p>
+              {importing && importStatus && (
+                <p className="text-xs text-primary font-semibold animate-pulse pt-1">{importStatus}</p>
+              )}
             </div>
 
             <label className="inline-block cursor-pointer">
@@ -133,7 +161,7 @@ export default function SettingsHubPage() {
               />
               <span className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow hover:bg-primary/90 transition-colors">
                 {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                <span>{importing ? "Importing & Parsing..." : "Select JSON File"}</span>
+                <span>{importing ? "Importing & Bulk Processing..." : "Select JSON File"}</span>
               </span>
             </label>
           </div>
@@ -141,28 +169,51 @@ export default function SettingsHubPage() {
           {/* Import Summary Results */}
           {importSummary && (
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5 space-y-3 text-xs">
-              <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-300">
-                <CheckCircle2 className="h-4 w-4" />
-                <span>Import Completed Successfully!</span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Import Completed Successfully!</span>
+                </div>
+                {importSummary.totalInFile > 0 && (
+                  <span className="text-[11px] text-muted-foreground font-medium">
+                    Processed {importSummary.totalInFile.toLocaleString()} items
+                  </span>
+                )}
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-foreground pt-1">
                 <div>
                   <span className="text-muted-foreground block text-[11px]">Imported</span>
-                  <span className="font-bold text-base text-emerald-600">{importSummary.imported}</span>
+                  <span className="font-bold text-base text-emerald-600">{importSummary.imported.toLocaleString()}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-[11px]">Dates Extracted</span>
-                  <span className="font-bold text-base text-blue-600">{importSummary.dateHeadersFound}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">Duplicates Merged</span>
-                  <span className="font-bold text-base text-amber-600">{importSummary.duplicates}</span>
+                  <span className="font-bold text-base text-blue-600">{importSummary.dateHeadersFound.toLocaleString()}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-[11px]">Dividers Skipped</span>
-                  <span className="font-bold text-base text-muted-foreground">{importSummary.skipped}</span>
+                  <span className="font-bold text-base text-muted-foreground">{importSummary.skipped.toLocaleString()}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Topics Created</span>
+                  <span className="font-bold text-base text-purple-600">{importSummary.topicsCreated?.length || 0}</span>
                 </div>
               </div>
+
+              {importSummary.topicsCreated && importSummary.topicsCreated.length > 0 && (
+                <div className="pt-2 border-t border-emerald-500/20">
+                  <span className="text-muted-foreground block text-[11px] mb-1.5 font-medium">Topics:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {importSummary.topicsCreated.map((t: string) => (
+                      <span
+                        key={t}
+                        className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-background/80 border text-foreground"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

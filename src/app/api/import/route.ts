@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/server/auth/session";
 import { ImportExportService } from "@/server/services/import-export.service";
 
+export const maxDuration = 300;
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   try {
     const user = await requireAuth();
