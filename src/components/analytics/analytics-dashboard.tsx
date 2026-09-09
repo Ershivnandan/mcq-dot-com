@@ -28,31 +28,12 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
-interface AnalyticsDashboardProps {
-  metrics: {
-    overview: {
-      totalQuestions: number;
-      practicedCount: number;
-      favoritesCount: number;
-      archivedCount: number;
-      quizAttemptsCount: number;
-      overallAccuracy: number;
-      currentStreak: number;
-    };
-    difficultyStats: Record<string, { total: number; correct: number; accuracy: number }>;
-    topicStats: Array<{ name: string; attempts: number; correct: number; accuracy: number }>;
-    strongestTopics: Array<{ name: string; attempts: number; accuracy: number }>;
-    weakestTopics: Array<{ name: string; attempts: number; accuracy: number }>;
-    recentActivity: Array<{ date: string; accuracy: number; score: number; total: number }>;
-    recentQuizzes: any[];
-  };
-}
+import { AnalyticsDashboardProps, Difficulty } from "@/typings";
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  EASY: "#10b981",
-  MEDIUM: "#f59e0b",
-  HARD: "#ef4444",
+  [Difficulty.EASY]: "#10b981",
+  [Difficulty.MEDIUM]: "#f59e0b",
+  [Difficulty.HARD]: "#ef4444",
 };
 
 export function AnalyticsDashboard({ metrics }: AnalyticsDashboardProps) {

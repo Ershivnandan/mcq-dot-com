@@ -7,31 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
-
-export interface QuestionCardProps {
-  question: {
-    id: string;
-    questionText: string;
-    explanation?: string | null;
-    difficulty: "EASY" | "MEDIUM" | "HARD";
-    questionDate?: string | Date | null;
-    source?: string | null;
-    notes?: string | null;
-    isFavorite: boolean;
-    isArchived: boolean;
-    topic?: { name: string } | null;
-    options: Array<{
-      id: string;
-      optionText: string;
-      optionOrder: number;
-      isCorrect: boolean;
-    }>;
-  };
-  isSelected?: boolean;
-  onSelect?: (id: string) => void;
-  onToggleFavorite?: (id: string) => void;
-  onDelete?: (id: string) => void;
-}
+import { QuestionCardProps } from "@/typings";
 
 export function QuestionCard({
   question,

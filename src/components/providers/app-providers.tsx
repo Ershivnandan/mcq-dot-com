@@ -10,10 +10,7 @@ import { ThemeProvider } from "@/components/layout/theme-provider";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { PWAInstaller } from "@/components/pwa/pwa-installer";
 import { NavigationProgress } from "@/components/layout/navigation-progress";
-
-interface AppProvidersProps {
-  children: React.ReactNode;
-}
+import { AppProvidersProps } from "@/typings";
 
 export function AppProviders({ children }: AppProvidersProps) {
   // Ensure Redux store is created once per request in SSR/client

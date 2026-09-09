@@ -10,23 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useTopicsQuery } from "@/hooks/queries/use-topics";
 
-interface AIDraftCardProps {
-  draft: {
-    id: string;
-    questionText: string;
-    explanation?: string | null;
-    difficulty: "EASY" | "MEDIUM" | "HARD";
-    topic?: string | null;
-    topicId?: string | null;
-    questionDate?: string | Date | null;
-    category?: string | null;
-    optionsJson: any;
-    tagsJson?: any;
-    createdAt: string | Date;
-  };
-  onApprove: (id: string, overrides?: any) => Promise<void>;
-  onReject: (id: string) => Promise<void>;
-}
+import { AIDraftCardProps } from "@/typings";
 
 export function AIDraftCard({ draft, onApprove, onReject }: AIDraftCardProps) {
   const { data: topics = [] } = useTopicsQuery();

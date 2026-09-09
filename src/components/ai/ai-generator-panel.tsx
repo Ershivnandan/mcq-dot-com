@@ -23,18 +23,13 @@ import {
 } from "@/lib/constants/ai-models";
 import { ModelLimitsDialog } from "@/components/ai/model-limits-dialog";
 import { useTopicsQuery } from "@/hooks/queries/use-topics";
-
-interface AIGeneratorPanelProps {
-  onGenerated: () => void;
-  activeProvider?: string | null;
-  configs?: any[];
-}
+import { AIGeneratorPanelProps, Difficulty, AIProviderType } from "@/typings";
 
 export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: AIGeneratorPanelProps) {
   const { data: topics = [] } = useTopicsQuery();
   const [prompt, setPrompt] = React.useState("");
   const [count, setCount] = React.useState(5);
-  const [difficulty, setDifficulty] = React.useState<"EASY" | "MEDIUM" | "HARD">("MEDIUM");
+  const [difficulty, setDifficulty] = React.useState<Difficulty>(Difficulty.MEDIUM);
   const [selectedTopicId, setSelectedTopicId] = React.useState<string>("all");
   const [questionDate, setQuestionDate] = React.useState<string>(
     () => new Date().toISOString().slice(0, 10)

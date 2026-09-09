@@ -3,17 +3,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { QUESTIONS_QUERY_KEY } from "./use-questions";
 import { TOPICS_QUERY_KEY } from "./use-topics";
+import { AIProviderConfigResponse, ApproveDraftParams, AIProviderType } from "@/typings";
 
-export interface AIProviderConfigResponse {
-  id: string;
-  provider: "GEMINI" | "OPENAI" | "ANTHROPIC";
-  maskedKey: string;
-  defaultModel: string;
-  isDefault: boolean;
-  isEnabled: boolean;
-  detectedModels?: string[];
-  updatedAt: string;
-}
+export type { AIProviderConfigResponse, ApproveDraftParams };
 
 export const AI_QUERY_KEY = ["ai"] as const;
 
@@ -69,7 +61,7 @@ export function useSaveAIConfigMutation() {
 
   return useMutation({
     mutationFn: async (payload: {
-      provider: "GEMINI" | "OPENAI" | "ANTHROPIC";
+      provider: AIProviderType | "GEMINI" | "OPENAI" | "ANTHROPIC";
       apiKey: string;
       defaultModel?: string;
       isDefault?: boolean;
@@ -91,18 +83,6 @@ export function useSaveAIConfigMutation() {
       queryClient.invalidateQueries({ queryKey: [...AI_QUERY_KEY, "configs"] });
     },
   });
-}
-
-export interface ApproveDraftParams {
-  id: string;
-  overrides?: {
-    questionText?: string;
-    explanation?: string;
-    options?: any[];
-    topicId?: string | null;
-    questionDate?: string | Date | null;
-    difficulty?: string;
-  };
 }
 
 /**

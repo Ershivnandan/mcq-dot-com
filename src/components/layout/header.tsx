@@ -23,11 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-interface HeaderProps {
-  onMenuToggle?: () => void;
-  user?: { name?: string | null; email?: string } | null;
-}
+import { HeaderProps } from "@/typings";
 
 export function Header({ onMenuToggle, user }: HeaderProps) {
   const router = useRouter();

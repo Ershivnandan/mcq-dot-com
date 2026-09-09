@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getUsersCol, getUserPreferencesCol, ensureIndexes } from "@/server/db";
 import { SignUpSchema } from "@/lib/validation/schemas";
 import { hashPassword, createSession } from "@/server/auth/session";
+import { QuizMode, Theme } from "@/typings";
 
 export async function POST(req: Request) {
   try {
@@ -37,8 +38,8 @@ export async function POST(req: Request) {
     const prefsCol = await getUserPreferencesCol();
     await prefsCol.insertOne({
       userId,
-      theme: "system",
-      defaultQuizMode: "PRACTICE",
+      theme: Theme.SYSTEM,
+      defaultQuizMode: QuizMode.PRACTICE,
       defaultQuestionCount: 20,
       shuffleOptions: true,
       shuffleQuestions: true,

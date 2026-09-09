@@ -1,16 +1,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { QuestionFiltersState } from "@/typings";
 
-export interface QuestionFiltersState {
-  search: string;
-  topicId: string;
-  difficulty: string;
-  isFavorite: boolean;
-  isArchived: boolean;
-  dateFrom: string;
-  dateTo: string;
-  page: number;
-  limit: number;
-}
+export type { QuestionFiltersState };
 
 const initialState: QuestionFiltersState = {
   search: "",

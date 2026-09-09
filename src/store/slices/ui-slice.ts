@@ -1,10 +1,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { UIState } from "@/typings";
 
-export interface UIState {
-  viewMode: "cards" | "table";
-  commandPaletteOpen: boolean;
-  sidebarCollapsed: boolean;
-}
+export type { UIState };
 
 const initialState: UIState = {
   viewMode: "cards",

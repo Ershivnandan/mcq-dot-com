@@ -6,15 +6,7 @@ import { Star, Edit3, Trash2, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
-
-interface QuestionTableProps {
-  questions: any[];
-  selectedIds: string[];
-  onToggleSelect: (id: string) => void;
-  onSelectAll: () => void;
-  onToggleFavorite: (id: string) => void;
-  onDelete: (id: string) => void;
-}
+import { QuestionTableProps } from "@/typings";
 
 export function QuestionTable({
   questions,

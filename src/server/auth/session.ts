@@ -6,12 +6,8 @@ import { getSessionsCol, getUsersCol, toObjectId } from "@/server/db";
 export const SESSION_COOKIE_NAME = "mcq_session_token";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
 
-export interface AuthUser {
-  id: string;
-  email: string;
-  name: string | null;
-  image: string | null;
-}
+import { AuthUser } from "@/typings";
+export type { AuthUser };
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = await bcrypt.genSalt(10);

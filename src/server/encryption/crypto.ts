@@ -16,11 +16,8 @@ function getMasterKey(): Buffer {
   return key;
 }
 
-export interface EncryptedData {
-  encryptedKey: string;
-  iv: string;
-  tag: string;
-}
+import { EncryptedData } from "@/typings";
+export type { EncryptedData };
 
 /**
  * Encrypts a sensitive string (e.g. LLM API Key) using AES-256-GCM.

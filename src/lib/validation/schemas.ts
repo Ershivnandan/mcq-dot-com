@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { Difficulty, QuizMode, AIProviderType, DraftStatus, BulkQuestionAction } from "@/typings";
 
-export const DifficultyEnum = z.enum(["EASY", "MEDIUM", "HARD"]);
-export const QuizModeEnum = z.enum(["PRACTICE", "EXAM"]);
-export const AIProviderTypeEnum = z.enum(["GEMINI", "OPENAI", "ANTHROPIC"]);
-export const DraftStatusEnum = z.enum(["DRAFT", "APPROVED", "REJECTED"]);
+export const DifficultyEnum = z.nativeEnum(Difficulty);
+export const QuizModeEnum = z.nativeEnum(QuizMode);
+export const AIProviderTypeEnum = z.nativeEnum(AIProviderType);
+export const DraftStatusEnum = z.nativeEnum(DraftStatus);
 
 // Auth Schemas
 export const SignUpSchema = z.object({
@@ -34,7 +35,7 @@ export const QuestionOptionSchema = z.object({
 export const QuestionInputSchema = z.object({
   questionText: z.string().min(3, "Question text must be at least 3 characters"),
   explanation: z.string().optional().nullable(),
-  difficulty: DifficultyEnum.default("MEDIUM"),
+  difficulty: DifficultyEnum.default(Difficulty.MEDIUM),
   questionDate: z.string().or(z.date()).optional().nullable(),
   source: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -51,7 +52,7 @@ export const QuestionInputSchema = z.object({
 // Bulk Questions Schema
 export const BulkQuestionActionSchema = z.object({
   questionIds: z.array(z.string()).min(1, "Select at least one question"),
-  action: z.enum(["delete", "favorite", "unfavorite", "archive", "restore", "set_difficulty", "set_topic"]),
+  action: z.nativeEnum(BulkQuestionAction),
   payload: z.any().optional(),
 });
 
@@ -75,7 +76,7 @@ export const QuestionQuerySchema = z.object({
 export const CreateQuizSchema = z.object({
   title: z.string().min(2, "Quiz title must be at least 2 characters"),
   description: z.string().optional(),
-  mode: QuizModeEnum.default("PRACTICE"),
+  mode: QuizModeEnum.default(QuizMode.PRACTICE),
   timeLimitMinutes: z.number().int().positive().optional().nullable(),
   shuffleQuestions: z.boolean().default(true),
   shuffleOptions: z.boolean().default(true),
@@ -139,7 +140,7 @@ export const AIGeneratedQuestionOutputSchema = z.object({
   explanation: z.string().optional().default(""),
   topic: z.string().optional().default("General"),
   category: z.string().optional().default("General"),
-  difficulty: DifficultyEnum.default("MEDIUM"),
+  difficulty: DifficultyEnum.default(Difficulty.MEDIUM),
   tags: z.array(z.string()).optional().default([]),
   relatedQuestions: z.array(z.string()).optional().default([]),
 });

@@ -1,17 +1,9 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { TopicItem } from "@/typings";
 
-export interface TopicItem {
-  id: string;
-  name: string;
-  slug?: string;
-  description?: string | null;
-  color?: string | null;
-  createdAt?: string;
-  updatedAt?: string;
-  _count?: { questions: number };
-}
+export type { TopicItem };
 
 export const TOPICS_QUERY_KEY = ["topics"] as const;
 

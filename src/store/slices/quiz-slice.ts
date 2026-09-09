@@ -1,12 +1,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { QuizProgressState } from "@/typings";
 
-export interface QuizProgressState {
-  activeQuizId: string | null;
-  currentQuestionIndex: number;
-  userAnswers: Record<string, string>; // questionId -> selectedOptionId
-  timeSpentSeconds: Record<string, number>;
-  isCompleted: boolean;
-}
+export type { QuizProgressState };
 
 const initialState: QuizProgressState = {
   activeQuizId: null,

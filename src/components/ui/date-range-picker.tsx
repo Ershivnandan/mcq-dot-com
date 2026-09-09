@@ -20,14 +20,7 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from "lucide-r
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-
-interface DateRangePickerProps {
-  dateFrom?: string | null;
-  dateTo?: string | null;
-  onSelect: (range: { from: string | null; to: string | null }) => void;
-  className?: string;
-  placeholder?: string;
-}
+import { DateRangePickerProps } from "@/typings";
 
 export function DateRangePicker({
   dateFrom,

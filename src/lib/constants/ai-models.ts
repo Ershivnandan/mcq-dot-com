@@ -1,16 +1,6 @@
-export interface AIModelOption {
-  id: string;
-  name: string;
-  badge: string;
-  description?: string;
-  freeRpm?: string;
-  freeRpd?: string;
-  freeTpm?: string;
-  paidRpm?: string;
-  contextWindow?: string;
-  limitsSummary?: string;
-  tier?: string;
-}
+import { AIModelOption, AIProviderType } from "@/typings";
+
+export type { AIModelOption };
 
 export const GEMINI_MODELS: AIModelOption[] = [
   {
@@ -151,10 +141,10 @@ export const ANTHROPIC_MODELS: AIModelOption[] = [
   },
 ];
 
-export const PROVIDER_MODELS_MAP: Record<string, AIModelOption[]> = {
-  GEMINI: GEMINI_MODELS,
-  OPENAI: OPENAI_MODELS,
-  ANTHROPIC: ANTHROPIC_MODELS,
+export const PROVIDER_MODELS_MAP: Record<AIProviderType | string, AIModelOption[]> = {
+  [AIProviderType.GEMINI]: GEMINI_MODELS,
+  [AIProviderType.OPENAI]: OPENAI_MODELS,
+  [AIProviderType.ANTHROPIC]: ANTHROPIC_MODELS,
 };
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";

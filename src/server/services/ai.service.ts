@@ -15,16 +15,20 @@ import { AIProvider } from "@/server/providers/ai-provider.interface";
 import { z } from "zod";
 import { AIConfigInputSchema, AIGenerateRequestSchema } from "@/lib/validation/schemas";
 import { QuestionService } from "./question.service";
+import { DraftStatus, AIProviderType } from "@/typings";
 
 export type AIConfigInput = z.infer<typeof AIConfigInputSchema>;
 export type AIGenerateRequest = z.infer<typeof AIGenerateRequestSchema>;
 
-function getProviderInstance(provider: "GEMINI" | "OPENAI" | "ANTHROPIC"): AIProvider {
+function getProviderInstance(provider: AIProviderType | "GEMINI" | "OPENAI" | "ANTHROPIC"): AIProvider {
   switch (provider) {
+    case AIProviderType.GEMINI:
     case "GEMINI":
       return new GeminiProvider();
+    case AIProviderType.OPENAI:
     case "OPENAI":
       return new OpenAIProvider();
+    case AIProviderType.ANTHROPIC:
     case "ANTHROPIC":
       return new AnthropicProvider();
     default:
@@ -265,7 +269,7 @@ export class AIService {
         difficulty: q.difficulty || input.difficulty || "MEDIUM",
         tagsJson: q.tags || [],
         relatedJson: q.relatedQuestions || [],
-        status: "DRAFT" as const,
+        status: DraftStatus.DRAFT,
         createdAt: now,
         updatedAt: now,
       }));
@@ -310,7 +314,7 @@ export class AIService {
    */
   static async getDrafts(userId: string) {
     const col = await getAIDraftsCol();
-    const drafts = await col.find({ userId, status: "DRAFT" }).sort({ createdAt: -1 }).toArray();
+    const drafts = await col.find({ userId, status: DraftStatus.DRAFT }).sort({ createdAt: -1 }).toArray();
     return formatDocs(drafts);
   }
 
@@ -384,7 +388,7 @@ export class AIService {
     // Mark draft as approved
     await draftsCol.updateOne(
       { _id: toObjectId(draftId) },
-      { $set: { status: "APPROVED", updatedAt: new Date() } }
+      { $set: { status: DraftStatus.APPROVED, updatedAt: new Date() } }
     );
 
     return question;
@@ -397,7 +401,7 @@ export class AIService {
     const draftsCol = await getAIDraftsCol();
     await draftsCol.updateOne(
       { _id: toObjectId(draftId), userId },
-      { $set: { status: "REJECTED", updatedAt: new Date() } }
+      { $set: { status: DraftStatus.REJECTED, updatedAt: new Date() } }
     );
     return true;
   }

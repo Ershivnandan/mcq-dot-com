@@ -22,13 +22,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { GEMINI_MODELS, PROVIDER_MODELS_MAP, AIModelOption } from "@/lib/constants/ai-models";
+import { GEMINI_MODELS, PROVIDER_MODELS_MAP } from "@/lib/constants/ai-models";
 import { useAIUsageQuery } from "@/hooks/queries/use-ai";
-
-interface ModelLimitsDialogProps {
-  provider?: string;
-  trigger?: React.ReactNode;
-}
+import { ModelLimitsDialogProps, AIModelOption, AIProviderType } from "@/typings";
 
 export function ModelLimitsDialog({ provider = "GEMINI", trigger }: ModelLimitsDialogProps) {
   const [open, setOpen] = React.useState(false);

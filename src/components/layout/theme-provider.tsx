@@ -1,21 +1,15 @@
 "use client";
 
 import * as React from "react";
-
-type Theme = "light" | "dark" | "oled" | "sepia" | "system";
-
-interface ThemeContextType {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-}
+import { Theme, ThemeValue, ThemeContextType } from "@/typings";
 
 const ThemeContext = React.createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = React.useState<Theme>("system");
+  const [theme, setThemeState] = React.useState<ThemeValue>("system");
 
   React.useEffect(() => {
-    const saved = localStorage.getItem("mcq_theme") as Theme | null;
+    const saved = localStorage.getItem("mcq_theme") as ThemeValue | null;
     if (saved) {
       setThemeState(saved);
       applyTheme(saved);
@@ -24,7 +18,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const applyTheme = (t: Theme) => {
+  const applyTheme = (t: ThemeValue) => {
     const root = document.documentElement;
     root.classList.remove("light", "dark", "oled", "sepia");
 
@@ -36,7 +30,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const setTheme = (newTheme: Theme) => {
+  const setTheme = (newTheme: ThemeValue) => {
     setThemeState(newTheme);
     localStorage.setItem("mcq_theme", newTheme);
     applyTheme(newTheme);

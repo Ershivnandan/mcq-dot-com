@@ -12,23 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-
-export interface FilterState {
-  search: string;
-  topicId: string;
-  difficulty: string;
-  isFavorite: boolean;
-  isArchived: boolean;
-  dateFrom: string;
-  dateTo: string;
-  viewMode: "cards" | "table";
-}
-
-interface QuestionFilterBarProps {
-  filters: FilterState;
-  onChange: (filters: FilterState) => void;
-  topics: Array<{ id: string; name: string }>;
-}
+import { FilterState, QuestionFilterBarProps } from "@/typings";
 
 export function QuestionFilterBar({
   filters,

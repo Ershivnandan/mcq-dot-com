@@ -48,30 +48,7 @@ import {
   useCreateQuestionMutation,
   useUpdateQuestionMutation,
 } from "@/hooks/queries/use-questions";
-
-interface OptionItem {
-  id: string;
-  optionText: string;
-  isCorrect: boolean;
-  optionOrder: number;
-}
-
-interface QuestionEditorProps {
-  initialData?: {
-    id?: string;
-    questionText: string;
-    explanation?: string | null;
-    difficulty: "EASY" | "MEDIUM" | "HARD";
-    questionDate?: string | Date | null;
-    source?: string | null;
-    notes?: string | null;
-    isFavorite: boolean;
-    topicId?: string | null;
-    options: OptionItem[];
-  };
-  topics?: Array<{ id: string; name: string }>;
-  isEditing?: boolean;
-}
+import { OptionItem, QuestionEditorProps, Difficulty } from "@/typings";
 
 export function QuestionEditor({
   initialData,

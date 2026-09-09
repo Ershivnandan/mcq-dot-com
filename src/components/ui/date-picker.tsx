@@ -19,15 +19,7 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from "lucide-r
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-
-interface DatePickerProps {
-  date?: string | Date | null;
-  onSelect?: (date: string | null) => void;
-  placeholder?: string;
-  className?: string;
-  clearable?: boolean;
-  disabled?: boolean;
-}
+import { DatePickerProps } from "@/typings";
 
 export function DatePicker({
   date,

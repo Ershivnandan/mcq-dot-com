@@ -18,39 +18,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatTime } from "@/lib/utils";
+import { DetailedAnswer, QuizResultsProps } from "@/typings";
 
-interface DetailedAnswer {
-  questionId: string;
-  questionText: string;
-  explanation?: string | null;
-  difficulty: "EASY" | "MEDIUM" | "HARD";
-  topic: string;
-  category: string;
-  options: Array<{ id: string; optionText: string; isCorrect: boolean }>;
-  selectedOptionId: string | null;
-  selectedOptionText: string;
-  correctOptionText: string;
-  isCorrect: boolean;
-  timeSpentSeconds: number;
-}
-
-interface QuizResultsProps {
-  attempt: {
-    id: string;
-    title: string;
-    mode: "PRACTICE" | "EXAM";
-    totalQuestions: number;
-    correctCount: number;
-    incorrectCount: number;
-    unansweredCount: number;
-    score: number;
-    accuracy: number;
-    timeTakenSeconds: number;
-  };
-  answers: DetailedAnswer[];
-}
-
-export function QuizResults({ attempt, answers }: QuizResultsProps) {
+export function QuizResults({ attempt, answers = [] }: QuizResultsProps) {
   React.useEffect(() => {
     if (attempt.accuracy >= 70) {
       try {
@@ -74,9 +44,12 @@ export function QuizResults({ attempt, answers }: QuizResultsProps) {
     return true;
   });
 
+  const timeTaken = attempt.timeTakenSeconds ?? attempt.timeSpentSeconds ?? 0;
+  const unansweredCount = attempt.unansweredCount ?? attempt.skippedCount ?? 0;
+
   const avgTime =
     attempt.totalQuestions > 0
-      ? Math.round(attempt.timeTakenSeconds / attempt.totalQuestions)
+      ? Math.round(timeTaken / attempt.totalQuestions)
       : 0;
 
   return (
@@ -119,7 +92,7 @@ export function QuizResults({ attempt, answers }: QuizResultsProps) {
 
             <div className="rounded-xl border bg-card p-4 text-center space-y-1">
               <p className="text-xs font-semibold text-muted-foreground uppercase">Time</p>
-              <p className="text-2xl font-black text-foreground">{formatTime(attempt.timeTakenSeconds)}</p>
+              <p className="text-2xl font-black text-foreground">{formatTime(timeTaken)}</p>
             </div>
 
             <div className="rounded-xl border bg-card p-4 text-center space-y-1">
@@ -181,14 +154,14 @@ export function QuizResults({ attempt, answers }: QuizResultsProps) {
             >
               Incorrect ({attempt.incorrectCount})
             </Button>
-            {attempt.unansweredCount > 0 && (
+            {unansweredCount > 0 && (
               <Button
                 variant={activeFilter === "unanswered" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => setActiveFilter("unanswered")}
                 className="h-7 text-xs text-muted-foreground"
               >
-                Unanswered ({attempt.unansweredCount})
+                Unanswered ({unansweredCount})
               </Button>
             )}
           </div>

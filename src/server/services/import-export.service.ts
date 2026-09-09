@@ -8,14 +8,8 @@ import {
   formatDoc,
 } from "@/server/db";
 
-export interface ImportSummary {
-  imported: number;
-  skipped: number;
-  duplicates: number;
-  invalid: number;
-  dateHeadersFound: number;
-  topicsCreated: string[];
-}
+import { ImportSummary, Difficulty } from "@/typings";
+export type { ImportSummary };
 
 export class ImportExportService {
   /**
@@ -157,7 +151,7 @@ export class ImportExportService {
           userId,
           questionText: qText,
           explanation: item.explanation || null,
-          difficulty: "MEDIUM" as const,
+          difficulty: Difficulty.MEDIUM,
           questionDate: currentSectionDate || new Date(),
           source: folderName,
           isFavorite: isStarred,

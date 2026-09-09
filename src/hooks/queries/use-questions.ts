@@ -2,30 +2,9 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TOPICS_QUERY_KEY } from "./use-topics";
+import { QuestionFiltersQueryParams, QuestionListResponse } from "@/typings";
 
-export interface QuestionFiltersQueryParams {
-  search?: string;
-  topicId?: string;
-  difficulty?: string;
-  isFavorite?: boolean;
-  isArchived?: boolean;
-  dateFrom?: string;
-  dateTo?: string;
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
-  page?: number;
-  limit?: number;
-}
-
-export interface QuestionListResponse {
-  questions: any[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
-}
+export type { QuestionFiltersQueryParams, QuestionListResponse };
 
 export const QUESTIONS_QUERY_KEY = ["questions"] as const;
 

@@ -3,12 +3,7 @@
 import * as React from "react";
 import { Star, Archive, Trash2, FolderPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-interface BulkActionsBarProps {
-  selectedCount: number;
-  onClear: () => void;
-  onAction: (action: "favorite" | "archive" | "delete") => void;
-}
+import { BulkActionsBarProps } from "@/typings";
 
 export function BulkActionsBar({
   selectedCount,

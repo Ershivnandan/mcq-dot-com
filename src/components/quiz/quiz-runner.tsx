@@ -34,31 +34,7 @@ import {
   setCurrentQuestionIndex as setReduxIndex,
   completeQuiz,
 } from "@/store/slices/quiz-slice";
-
-interface QuestionItem {
-  id: string;
-  questionText: string;
-  explanation?: string | null;
-  difficulty: "EASY" | "MEDIUM" | "HARD";
-  topic?: { name: string } | null;
-  options: Array<{
-    id: string;
-    optionText: string;
-    isCorrect: boolean;
-  }>;
-}
-
-interface QuizRunnerProps {
-  quiz: {
-    id: string;
-    title: string;
-    mode: "PRACTICE" | "EXAM";
-    timeLimitMinutes?: number | null;
-    showExplanations: boolean;
-    totalQuestions: number;
-  };
-  questions: QuestionItem[];
-}
+import { QuestionItem, QuizRunnerProps } from "@/typings";
 
 export function QuizRunner({ quiz, questions }: QuizRunnerProps) {
   const router = useRouter();

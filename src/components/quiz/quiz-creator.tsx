@@ -15,11 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-
-interface QuizCreatorProps {
-  topics: Array<{ id: string; name: string }>;
-  categories: Array<{ id: string; name: string; topicId?: string | null }>;
-}
+import { QuizCreatorProps, QuizMode } from "@/typings";
 
 export function QuizCreator({ topics, categories }: QuizCreatorProps) {
   const router = useRouter();
@@ -32,7 +28,7 @@ export function QuizCreator({ topics, categories }: QuizCreatorProps) {
   const [title, setTitle] = React.useState(
     isDueMode ? "Daily Spaced Repetition Quiz" : "Practice Quiz"
   );
-  const [mode, setMode] = React.useState<"PRACTICE" | "EXAM">("PRACTICE");
+  const [mode, setMode] = React.useState<QuizMode>(QuizMode.PRACTICE);
   const [questionCount, setQuestionCount] = React.useState(20);
   const [timeLimitMinutes, setTimeLimitMinutes] = React.useState<number>(15);
 
@@ -123,10 +119,10 @@ export function QuizCreator({ topics, categories }: QuizCreatorProps) {
           {/* Mode Selector */}
           <div className="grid grid-cols-2 gap-3">
             <div
-              onClick={() => setMode("PRACTICE")}
+              onClick={() => setMode(QuizMode.PRACTICE)}
               className={cn(
                 "p-4 rounded-xl border-2 cursor-pointer transition-all space-y-1 select-none",
-                mode === "PRACTICE"
+                mode === QuizMode.PRACTICE
                   ? "border-primary bg-primary/5 text-primary"
                   : "border-border hover:border-border/80"
               )}
@@ -141,10 +137,10 @@ export function QuizCreator({ topics, categories }: QuizCreatorProps) {
             </div>
 
             <div
-              onClick={() => setMode("EXAM")}
+              onClick={() => setMode(QuizMode.EXAM)}
               className={cn(
                 "p-4 rounded-xl border-2 cursor-pointer transition-all space-y-1 select-none",
-                mode === "EXAM"
+                mode === QuizMode.EXAM
                   ? "border-primary bg-primary/5 text-primary"
                   : "border-border hover:border-border/80"
               )}

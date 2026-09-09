@@ -162,7 +162,7 @@ export default function QuestionsPage() {
               page: 1,
             })
           );
-          if (newFilters.viewMode !== viewMode) {
+          if (newFilters.viewMode && newFilters.viewMode !== viewMode) {
             dispatch(setViewMode(newFilters.viewMode));
           }
         }}

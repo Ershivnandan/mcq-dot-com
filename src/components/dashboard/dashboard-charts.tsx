@@ -34,38 +34,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-
-interface DashboardChartsProps {
-  metrics: {
-    overview: {
-      totalQuestions: number;
-      practicedCount: number;
-      favoritesCount: number;
-      archivedCount: number;
-      quizAttemptsCount: number;
-      overallAccuracy: number;
-      currentStreak: number;
-    };
-    difficultyStats: Record<string, { total: number; correct: number; accuracy: number }>;
-    questionsByDifficulty?: Record<string, number>;
-    questionsByTopic?: Array<{ name: string; count: number }>;
-    masteryBreakdown?: {
-      mastered: number;
-      learning: number;
-      unattempted: number;
-      masteredPct: number;
-      learningPct: number;
-      unattemptedPct: number;
-    };
-    weeklyActivity?: Array<{ day: string; date: string; attempts: number; questions: number }>;
-    recentActivity?: Array<{ date: string; accuracy: number; score: number; total: number }>;
-  };
-}
+import { DashboardChartsProps, Difficulty } from "@/typings";
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  EASY: "#10b981",
-  MEDIUM: "#f59e0b",
-  HARD: "#ef4444",
+  [Difficulty.EASY]: "#10b981",
+  [Difficulty.MEDIUM]: "#f59e0b",
+  [Difficulty.HARD]: "#ef4444",
 };
 
 export function DashboardCharts({ metrics }: DashboardChartsProps) {
