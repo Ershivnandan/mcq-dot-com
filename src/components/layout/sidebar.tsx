@@ -31,6 +31,11 @@ const navItems = [
 
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
+  const [optimisticHref, setOptimisticHref] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setOptimisticHref(null);
+  }, [pathname]);
 
   return (
     <aside
@@ -41,7 +46,7 @@ export function Sidebar({ className }: { className?: string }) {
     >
       <div className="space-y-4">
         <div className="space-y-1">
-          <Link href="/questions/new" className="block w-full">
+          <Link href="/questions/new" prefetch={true} className="block w-full">
             <Button className="w-full justify-start gap-2 shadow-sm font-semibold" size="sm">
               <PlusCircle className="h-4 w-4 text-primary-foreground" />
               <span>Add Question</span>
@@ -55,23 +60,26 @@ export function Sidebar({ className }: { className?: string }) {
           </p>
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive =
+            const currentActive =
               pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            const isActive = optimisticHref ? optimisticHref === item.href : currentActive;
 
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
+                onClick={() => setOptimisticHref(item.href)}
                 className={cn(
-                  "flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-all hover:bg-accent hover:text-accent-foreground",
+                  "flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-all hover:bg-accent hover:text-accent-foreground active:scale-98",
                   isActive
                     ? "bg-primary/10 text-primary font-semibold"
                     : "text-muted-foreground"
                 )}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
+                  <Icon className={cn("h-4 w-4 transition-colors", isActive ? "text-primary" : "text-muted-foreground")} />
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (

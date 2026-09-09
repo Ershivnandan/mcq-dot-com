@@ -83,11 +83,11 @@ export function CommandPalette() {
                 <span>AI Question Generator</span>
               </Command.Item>
               <Command.Item
-                onSelect={() => runCommand(() => router.push("/collections"))}
+                onSelect={() => runCommand(() => router.push("/topics"))}
                 className="flex items-center gap-2 rounded-md px-2 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground"
               >
                 <FolderTree className="h-4 w-4 text-amber-500" />
-                <span>Collections</span>
+                <span>Topics & Categories</span>
               </Command.Item>
               <Command.Item
                 onSelect={() => runCommand(() => router.push("/analytics"))}

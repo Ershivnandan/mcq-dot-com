@@ -29,9 +29,9 @@ export default function AIPage() {
   const [approvingAll, setApprovingAll] = React.useState(false);
   const loading = draftsLoading || configsLoading;
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = async (id: string, overrides?: any) => {
     try {
-      await approveDraftMutation.mutateAsync(id);
+      await approveDraftMutation.mutateAsync({ id, overrides });
     } catch (err: any) {
       alert(err.message || "Failed to approve draft.");
     }

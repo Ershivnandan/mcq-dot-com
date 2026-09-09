@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Sparkles, Loader2, BookOpen, Send, HelpCircle, Layers, Bot, Cpu, Zap } from "lucide-react";
+import { Sparkles, Loader2, BookOpen, Send, HelpCircle, Layers, Bot, Cpu, Zap, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -21,6 +22,7 @@ import {
   AIModelOption,
 } from "@/lib/constants/ai-models";
 import { ModelLimitsDialog } from "@/components/ai/model-limits-dialog";
+import { useTopicsQuery } from "@/hooks/queries/use-topics";
 
 interface AIGeneratorPanelProps {
   onGenerated: () => void;
@@ -29,10 +31,14 @@ interface AIGeneratorPanelProps {
 }
 
 export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: AIGeneratorPanelProps) {
+  const { data: topics = [] } = useTopicsQuery();
   const [prompt, setPrompt] = React.useState("");
   const [count, setCount] = React.useState(5);
   const [difficulty, setDifficulty] = React.useState<"EASY" | "MEDIUM" | "HARD">("MEDIUM");
-  const [topic, setTopic] = React.useState("Computer Science");
+  const [selectedTopicId, setSelectedTopicId] = React.useState<string>("all");
+  const [questionDate, setQuestionDate] = React.useState<string>(
+    () => new Date().toISOString().slice(0, 10)
+  );
   const [researchEnabled, setResearchEnabled] = React.useState(false);
 
   // Model selection state
@@ -67,6 +73,10 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
     setLoading(true);
 
     try {
+      const selectedTopicObj = topics.find((t: any) => t.id === selectedTopicId);
+      const resolvedTopicName = selectedTopicObj ? selectedTopicObj.name : "General";
+      const resolvedTopicId = selectedTopicId !== "all" ? selectedTopicId : null;
+
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -74,7 +84,9 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
           prompt: prompt.trim(),
           count,
           difficulty,
-          topic: topic.trim() || "General",
+          topicId: resolvedTopicId,
+          topic: resolvedTopicName,
+          questionDate: questionDate || new Date().toISOString().slice(0, 10),
           researchEnabled,
           provider: effectiveProvider,
           model: selectedModel,
@@ -167,12 +179,12 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
           </div>
 
           {/* Configuration Parameters Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2">
             {/* Model Selector */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
                 <Cpu className="h-3 w-3 text-purple-500" />
-                <span>Gemini Model</span>
+                <span>Model</span>
               </label>
               <Select value={selectedModel} onValueChange={setSelectedModel}>
                 <SelectTrigger className="h-8 text-xs font-medium">
@@ -200,20 +212,44 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
               </Select>
             </div>
 
-            {/* Topic / Subject */}
+            {/* Topic Dropdown */}
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Topic / Subject</label>
-              <Input
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                placeholder="e.g. DBMS, Current Affairs"
-                className="h-8 text-xs"
+              <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                <BookOpen className="h-3 w-3 text-purple-500" />
+                <span>Topic</span>
+              </label>
+              <Select value={selectedTopicId} onValueChange={setSelectedTopicId}>
+                <SelectTrigger className="h-8 text-xs font-medium">
+                  <SelectValue placeholder="Select Topic" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">General / No Topic</SelectItem>
+                  {topics.map((t: any) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Question Date */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                <Calendar className="h-3 w-3 text-purple-500" />
+                <span>Question Date</span>
+              </label>
+              <DatePicker
+                date={questionDate}
+                onSelect={(val) => setQuestionDate(val || "")}
+                placeholder="Pick question date"
+                className="[&>button]:h-8 [&>button]:text-xs"
               />
             </div>
 
             {/* Difficulty */}
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Difficulty</label>
+              <label className="text-xs font-semibold text-muted-foreground">Difficulty</label>
               <Select
                 value={difficulty}
                 onValueChange={(val: any) => setDifficulty(val)}
@@ -231,14 +267,14 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
 
             {/* Count */}
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Count (1-20)</label>
+              <label className="text-xs font-semibold text-muted-foreground">Count (1-20)</label>
               <Input
                 type="number"
                 min={1}
                 max={20}
                 value={count}
                 onChange={(e) => setCount(parseInt(e.target.value) || 5)}
-                className="h-8 text-xs"
+                className="h-8 text-xs font-medium"
               />
             </div>
           </div>

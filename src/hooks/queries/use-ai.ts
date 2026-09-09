@@ -93,6 +93,18 @@ export function useSaveAIConfigMutation() {
   });
 }
 
+export interface ApproveDraftParams {
+  id: string;
+  overrides?: {
+    questionText?: string;
+    explanation?: string;
+    options?: any[];
+    topicId?: string | null;
+    questionDate?: string | Date | null;
+    difficulty?: string;
+  };
+}
+
 /**
  * Hook to approve an AI generated draft.
  */
@@ -100,9 +112,14 @@ export function useApproveDraftMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (draftId: string) => {
+    mutationFn: async (arg: string | ApproveDraftParams) => {
+      const draftId = typeof arg === "string" ? arg : arg.id;
+      const overrides = typeof arg === "string" ? undefined : arg.overrides;
+
       const res = await fetch(`/api/ai/drafts/${draftId}/approve`, {
         method: "POST",
+        headers: overrides ? { "Content-Type": "application/json" } : undefined,
+        body: overrides ? JSON.stringify(overrides) : undefined,
       });
 
       if (!res.ok) {

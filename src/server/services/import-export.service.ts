@@ -1,6 +1,5 @@
 import {
   getQuestionsCol,
-  getCollectionsCol,
   getTopicsCol,
   getCategoriesCol,
   getQuestionProgressCol,
@@ -53,44 +52,12 @@ export class ImportExportService {
       throw new Error("Invalid backup format: missing 'folders' array.");
     }
 
-    const [questionsCol, collectionsCol, topicsCol, categoriesCol, progressCol] = await Promise.all([
+    const [questionsCol, topicsCol, categoriesCol, progressCol] = await Promise.all([
       getQuestionsCol(),
-      getCollectionsCol(),
       getTopicsCol(),
       getCategoriesCol(),
       getQuestionProgressCol(),
     ]);
-
-    // Get all existing question texts for user to prevent duplicates
-    const existingQuestions = await questionsCol
-      .find({ userId })
-      .project({ questionText: 1 })
-      .toArray();
-    const existingSet = new Set(existingQuestions.map((q) => q.questionText.trim().toLowerCase()));
-
-    // Create or find Important collection
-    let importantCollection = await collectionsCol.findOne({ userId, name: "Important" });
-    if (!importantCollection) {
-      const now = new Date();
-      const insertRes = await collectionsCol.insertOne({
-        userId,
-        name: "Important",
-        description: "Starred and important questions from backup",
-        color: "#f59e0b",
-        createdAt: now,
-        updatedAt: now,
-      });
-      importantCollection = {
-        _id: insertRes.insertedId,
-        id: insertRes.insertedId.toString(),
-        userId,
-        name: "Important",
-        description: "Starred and important questions from backup",
-        color: "#f59e0b",
-        createdAt: now,
-        updatedAt: now,
-      };
-    }
 
     for (const folder of rawJson.folders) {
       const folderName = (folder.name || "").trim();
@@ -101,7 +68,6 @@ export class ImportExportService {
         continue;
       }
 
-      // Skip the "Important" folder if it only contains duplicates of starred items
       const isImportantFolder = folderName.toLowerCase() === "important";
 
       // Determine topic/category
@@ -176,20 +142,6 @@ export class ImportExportService {
           continue;
         }
 
-        const normalizedQ = qText.toLowerCase();
-
-        // If duplicate
-        if (existingSet.has(normalizedQ)) {
-          summary.duplicates++;
-          if (isImportantFolder || item.starred) {
-            await questionsCol.updateMany(
-              { userId, questionText: qText },
-              { $set: { isFavorite: true, updatedAt: new Date() } }
-            );
-          }
-          continue;
-        }
-
         // Build options
         const ansIndex = typeof item.ans === "number" ? item.ans : 0;
         const options = item.opts.map((optText: string, idx: number) => ({
@@ -200,8 +152,6 @@ export class ImportExportService {
         }));
 
         const isStarred = Boolean(item.starred) || isImportantFolder;
-        const importantIdStr = importantCollection._id?.toString() || importantCollection.id;
-        const collectionIds = isStarred && importantIdStr ? [importantIdStr] : [];
 
         const questionDoc = {
           userId,
@@ -214,7 +164,6 @@ export class ImportExportService {
           isArchived: false,
           topicId,
           categoryId,
-          collectionIds,
           tagIds: [],
           options,
           createdAt: now,
@@ -239,7 +188,6 @@ export class ImportExportService {
           updatedAt: now,
         });
 
-        existingSet.add(normalizedQ);
         summary.imported++;
       }
     }
@@ -250,10 +198,9 @@ export class ImportExportService {
   /**
    * Exports questions to a portable JSON backup.
    */
-  static async exportQuestionsJson(userId: string, filter?: { collectionId?: string; topicId?: string }) {
+  static async exportQuestionsJson(userId: string, filter?: { topicId?: string }) {
     const questionsCol = await getQuestionsCol();
     const query: any = { userId };
-    if (filter?.collectionId) query.collectionIds = filter.collectionId;
     if (filter?.topicId) query.topicId = filter.topicId;
 
     const rawQuestions = await questionsCol.find(query).sort({ createdAt: 1 }).toArray();

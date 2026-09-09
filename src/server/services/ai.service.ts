@@ -234,7 +234,19 @@ export class AIService {
       const durationMs = Date.now() - startTime;
       const now = new Date();
 
+      // Resolve topicId & topicName if topicId was provided
+      let topicName = input.topic || "General";
+      let topicId = input.topicId || null;
+      if (topicId) {
+        const topicsCol = await getTopicsCol();
+        const foundTopic = await topicsCol.findOne({ _id: toObjectId(topicId), userId });
+        if (foundTopic) {
+          topicName = foundTopic.name;
+        }
+      }
+
       // Save drafts to database
+      const parsedQuestionDate = input.questionDate ? new Date(input.questionDate) : new Date();
       const draftDocs = generated.map((q) => ({
         userId,
         prompt: input.prompt,
@@ -246,7 +258,9 @@ export class AIService {
           isCorrect: idx === q.correctOptionIndex,
         })),
         explanation: q.explanation || "",
-        topic: q.topic || input.topic || "General",
+        topic: topicName,
+        topicId: topicId,
+        questionDate: parsedQuestionDate,
         category: q.category || input.category || "General",
         difficulty: q.difficulty || input.difficulty || "MEDIUM",
         tagsJson: q.tags || [],
@@ -303,17 +317,28 @@ export class AIService {
   /**
    * Approves an AI draft and moves it directly into the user's permanent question library.
    */
-  static async approveDraft(userId: string, draftId: string) {
+  static async approveDraft(
+    userId: string,
+    draftId: string,
+    overrides?: {
+      questionText?: string;
+      explanation?: string;
+      options?: any[];
+      topicId?: string | null;
+      questionDate?: string | Date | null;
+      difficulty?: string;
+    }
+  ) {
     const draftsCol = await getAIDraftsCol();
     const draft = await draftsCol.findOne({ _id: toObjectId(draftId), userId });
 
     if (!draft) throw new Error("Draft not found");
 
-    const options = (draft.optionsJson as any[]) || [];
+    const options = overrides?.options || (draft.optionsJson as any[]) || [];
 
-    // Ensure topic exists or create it
-    let topicId = null;
-    if (draft.topic) {
+    // Ensure topic exists or resolve topicId
+    let topicId = overrides?.topicId !== undefined ? overrides.topicId : draft.topicId;
+    if (!topicId && draft.topic && draft.topic !== "General") {
       const topicsCol = await getTopicsCol();
       const slug = draft.topic.toLowerCase().replace(/\s+/g, "-");
       const topic = await topicsCol.findOneAndUpdate(
@@ -332,12 +357,19 @@ export class AIService {
       topicId = topic?._id?.toString() || null;
     }
 
+    const questionDate = overrides?.questionDate
+      ? new Date(overrides.questionDate)
+      : draft.questionDate
+      ? new Date(draft.questionDate)
+      : new Date();
+
     // Create the permanent Question
     const question = await QuestionService.createQuestion(userId, {
-      questionText: draft.questionText,
-      explanation: draft.explanation,
-      difficulty: draft.difficulty as any,
-      topicId,
+      questionText: overrides?.questionText || draft.questionText,
+      explanation: overrides?.explanation !== undefined ? overrides.explanation : draft.explanation,
+      difficulty: (overrides?.difficulty || draft.difficulty) as any,
+      topicId: topicId || null,
+      questionDate,
       options: options.map((o: any, idx: number) => ({
         id: o.id || `opt_${idx + 1}`,
         optionText: o.optionText || o.text || "",

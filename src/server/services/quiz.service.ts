@@ -220,6 +220,15 @@ export class QuizService {
     };
 
     const res = await attemptsCol.insertOne(doc);
+
+    // Invalidate cached analytics metrics since a new attempt was recorded
+    try {
+      const { AnalyticsService } = await import("./analytics.service");
+      AnalyticsService.invalidateUserMetrics(userId);
+    } catch {
+      // Non-critical
+    }
+
     return formatDoc({ ...doc, _id: res.insertedId });
   }
 
@@ -237,7 +246,7 @@ export class QuizService {
       .toArray();
 
     const quizIds = attempts.map((a) => a.quizId).filter((id): id is string => Boolean(id)).map(toObjectId);
-    const quizzes = await quizzesCol.find({ _id: { $in: quizIds } }).toArray();
+    const quizzes = quizIds.length > 0 ? await quizzesCol.find({ _id: { $in: quizIds } }).toArray() : [];
     const quizMap = new Map(quizzes.map((q) => [q._id.toString(), q]));
 
     return attempts.map((a) => ({

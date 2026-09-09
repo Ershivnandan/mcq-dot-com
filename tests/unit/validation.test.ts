@@ -4,6 +4,7 @@ import {
   SignUpSchema,
   CreateQuizSchema,
   AIGeneratedResponseSchema,
+  AIGenerateRequestSchema,
   QuestionQuerySchema,
 } from "@/lib/validation/schemas";
 
@@ -88,6 +89,38 @@ describe("Zod Validation Schemas", () => {
       expect(result.data.dateTo).toBe("2026-06-30");
       expect(result.data.sortBy).toBe("questionDate");
       expect(result.data.sortOrder).toBe("asc");
+    }
+  });
+
+  it("handles isFavorite query param correctly (true vs undefined/false)", () => {
+    // When isFavorite="true", should be parsed as boolean true
+    const starredQuery = QuestionQuerySchema.parse({ isFavorite: "true" });
+    expect(starredQuery.isFavorite).toBe(true);
+
+    // When isFavorite is omitted, should be undefined
+    const normalQuery = QuestionQuerySchema.parse({});
+    expect(normalQuery.isFavorite).toBeUndefined();
+
+    // When isFavorite="false", should be boolean false
+    const unstarredQuery = QuestionQuerySchema.parse({ isFavorite: "false" });
+    expect(unstarredQuery.isFavorite).toBe(false);
+  });
+
+  it("validates AIGenerateRequestSchema with topicId and questionDate", () => {
+    const aiReq = {
+      prompt: "Generate 5 questions on Distributed Transactions",
+      count: 5,
+      difficulty: "HARD",
+      topicId: "topic_12345",
+      topic: "System Design",
+      questionDate: "2026-09-09",
+    };
+    const result = AIGenerateRequestSchema.safeParse(aiReq);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.topicId).toBe("topic_12345");
+      expect(result.data.questionDate).toBe("2026-09-09");
+      expect(result.data.topic).toBe("System Design");
     }
   });
 });

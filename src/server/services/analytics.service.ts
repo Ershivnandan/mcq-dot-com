@@ -7,11 +7,24 @@ import {
   formatDocs,
 } from "@/server/db";
 
+// In-memory metrics cache to ensure instant tab switching between Dashboard & Analytics
+const metricsCache = new Map<string, { data: any; timestamp: number }>();
+const METRICS_CACHE_TTL_MS = 25 * 1000; // 25 seconds
+
 export class AnalyticsService {
+  static invalidateUserMetrics(userId: string) {
+    metricsCache.delete(userId);
+  }
+
   /**
    * Computes comprehensive analytics dashboard metrics for the user.
    */
   static async getDashboardMetrics(userId: string) {
+    const cached = metricsCache.get(userId);
+    if (cached && Date.now() - cached.timestamp < METRICS_CACHE_TTL_MS) {
+      return cached.data;
+    }
+
     const [questionsCol, attemptsCol, progressCol, topicsCol] = await Promise.all([
       getQuestionsCol(),
       getQuizAttemptsCol(),
@@ -26,6 +39,8 @@ export class AnalyticsService {
       quizAttempts,
       progressItems,
       topics,
+      difficultyAgg,
+      topicAgg,
     ] = await Promise.all([
       questionsCol.countDocuments({ userId, isArchived: false }),
       questionsCol.countDocuments({ userId, isFavorite: true, isArchived: false }),
@@ -33,14 +48,53 @@ export class AnalyticsService {
       attemptsCol.find({ userId }).sort({ completedAt: -1 }).limit(50).toArray(),
       progressCol.find({ userId }).toArray(),
       topicsCol.find({ userId }).project({ _id: 1, name: 1 }).toArray(),
+      questionsCol
+        .aggregate([
+          { $match: { userId, isArchived: false } },
+          { $group: { _id: "$difficulty", count: { $sum: 1 } } },
+        ])
+        .toArray(),
+      questionsCol
+        .aggregate([
+          { $match: { userId, isArchived: false } },
+          { $group: { _id: "$topicId", count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 6 },
+        ])
+        .toArray(),
     ]);
 
-    // Attach questions difficulty and topic to progress items
-    const questionIds = progressItems.map((p) => toObjectId(p.questionId));
-    const questions = await questionsCol
-      .find({ _id: { $in: questionIds }, userId })
-      .project({ _id: 1, topicId: 1, difficulty: 1 })
-      .toArray();
+    // Questions by difficulty distribution in the library
+    const questionsByDifficulty: Record<string, number> = {
+      EASY: 0,
+      MEDIUM: 0,
+      HARD: 0,
+    };
+    difficultyAgg.forEach((d: any) => {
+      if (d._id && questionsByDifficulty[d._id] !== undefined) {
+        questionsByDifficulty[d._id] = d.count;
+      }
+    });
+
+    // Topic map for name lookups
+    const topicMap = new Map(topics.map((t) => [t._id.toString(), t.name]));
+
+    // Top questions count by topic
+    const questionsByTopic = topicAgg.map((item: any) => ({
+      name: (item._id && topicMap.get(item._id)) || "General",
+      count: item.count,
+    }));
+
+    // Attach questions difficulty and topic only to attempted items for rapid rendering
+    const attemptedItems = progressItems.filter((p) => p.attemptCount > 0);
+    const questionIds = attemptedItems.map((p) => toObjectId(p.questionId));
+    const questions =
+      questionIds.length > 0
+        ? await questionsCol
+            .find({ _id: { $in: questionIds }, userId })
+            .project({ _id: 1, topicId: 1, difficulty: 1 })
+            .toArray()
+        : [];
 
     const questionMap = new Map(questions.map((q) => [q._id.toString(), q]));
 
@@ -49,6 +103,25 @@ export class AnalyticsService {
     const totalAttempts = progressItems.reduce((acc, curr) => acc + curr.attemptCount, 0);
     const totalCorrect = progressItems.reduce((acc, curr) => acc + curr.correctCount, 0);
     const overallAccuracy = totalAttempts > 0 ? parseFloat(((totalCorrect / totalAttempts) * 100).toFixed(1)) : 0;
+
+    // Mastery Breakdown
+    const masteredCount = progressItems.filter(
+      (p) => p.attemptCount > 0 && (p.intervalDays >= 21 || (p.masteryLevel && p.masteryLevel >= 4))
+    ).length;
+    const learningCount = progressItems.filter(
+      (p) => p.attemptCount > 0 && !(p.intervalDays >= 21 || (p.masteryLevel && p.masteryLevel >= 4))
+    ).length;
+    const unattemptedCount = Math.max(0, totalQuestions - (masteredCount + learningCount));
+    const totalForPct = Math.max(totalQuestions, 1);
+
+    const masteryBreakdown = {
+      mastered: masteredCount,
+      learning: learningCount,
+      unattempted: unattemptedCount,
+      masteredPct: Math.round((masteredCount / totalForPct) * 100),
+      learningPct: Math.round((learningCount / totalForPct) * 100),
+      unattemptedPct: Math.round((unattemptedCount / totalForPct) * 100),
+    };
 
     // Study streak (days with at least 1 attempt)
     const activeDates = new Set(
@@ -89,7 +162,6 @@ export class AnalyticsService {
     });
 
     // Topic performance
-    const topicMap = new Map(topics.map((t) => [t._id.toString(), t.name]));
     const topicPerformance: Record<string, { name: string; attempts: number; correct: number; accuracy: number }> = {};
 
     progressItems.forEach((p) => {
@@ -130,7 +202,29 @@ export class AnalyticsService {
         total: a.totalQuestions,
       }));
 
-    return {
+    // Daily study activity over the last 7 days
+    const weeklyActivity: Array<{ day: string; date: string; attempts: number; questions: number }> = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateKey = d.toISOString().slice(0, 10);
+      const dayLabel = d.toLocaleDateString("en-US", { weekday: "short" });
+      const dateLabel = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+      const dayAttempts = quizAttempts.filter(
+        (a) => a.completedAt.toISOString().slice(0, 10) === dateKey
+      );
+      const questionsCount = dayAttempts.reduce((sum, a) => sum + (a.totalQuestions || 0), 0);
+
+      weeklyActivity.push({
+        day: dayLabel,
+        date: dateLabel,
+        attempts: dayAttempts.length,
+        questions: questionsCount,
+      });
+    }
+
+    const result = {
       overview: {
         totalQuestions,
         practicedCount,
@@ -141,11 +235,18 @@ export class AnalyticsService {
         currentStreak: streak,
       },
       difficultyStats,
+      questionsByDifficulty,
+      questionsByTopic,
+      masteryBreakdown,
+      weeklyActivity,
       topicStats: topicStats.slice(0, 10),
       strongestTopics,
       weakestTopics,
       recentActivity,
       recentQuizzes: formatDocs(quizAttempts.slice(0, 5)),
     };
+
+    metricsCache.set(userId, { data: result, timestamp: Date.now() });
+    return result;
   }
 }

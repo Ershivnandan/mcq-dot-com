@@ -19,10 +19,9 @@ import { cn } from "@/lib/utils";
 interface QuizCreatorProps {
   topics: Array<{ id: string; name: string }>;
   categories: Array<{ id: string; name: string; topicId?: string | null }>;
-  collections: Array<{ id: string; name: string }>;
 }
 
-export function QuizCreator({ topics, categories, collections }: QuizCreatorProps) {
+export function QuizCreator({ topics, categories }: QuizCreatorProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isDueMode = searchParams.get("due") === "true";
@@ -40,7 +39,6 @@ export function QuizCreator({ topics, categories, collections }: QuizCreatorProp
   // Filters
   const [topicId, setTopicId] = React.useState<string>("");
   const [categoryId, setCategoryId] = React.useState<string>("");
-  const [collectionId, setCollectionId] = React.useState<string>("");
   const [difficulty, setDifficulty] = React.useState<string>("");
   const [onlyFavorites, setOnlyFavorites] = React.useState(false);
   const [onlyIncorrect, setOnlyIncorrect] = React.useState(false);
@@ -60,7 +58,6 @@ export function QuizCreator({ topics, categories, collections }: QuizCreatorProp
         questionCount,
         topicId: topicId || null,
         categoryId: categoryId || null,
-        collectionId: collectionId || null,
         difficulty: difficulty || null,
         onlyFavorites,
         onlyIncorrect,
@@ -208,23 +205,6 @@ export function QuizCreator({ topics, categories, collections }: QuizCreatorProp
                       {topics.map((t) => (
                         <SelectItem key={t.id} value={t.id}>
                           {t.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium">Collection</label>
-                  <Select value={collectionId} onValueChange={setCollectionId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Collections" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Collections</SelectItem>
-                      {collections.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

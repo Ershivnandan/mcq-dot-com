@@ -22,7 +22,6 @@ export class TaxonomyService {
       topics: formatDocs(topics),
       categories: [], // removed: month-wise division used instead
       tags: formatDocs(tags),
-      collections: [], // removed: folder categorization not needed
     };
   }
 

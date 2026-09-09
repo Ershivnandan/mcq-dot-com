@@ -20,9 +20,10 @@ export class QuestionService {
   static async getQuestions(userId: string, query: QuestionQuery) {
     const filter: any = { userId };
 
-    // Favorite / Archived filters
-    if (typeof query.isFavorite === "boolean") {
-      filter.isFavorite = query.isFavorite;
+    // Favorite filter: Only filter by isFavorite when explicitly requested as true.
+    // If not applied (or false), include all questions (both normal and starred).
+    if (query.isFavorite === true) {
+      filter.isFavorite = true;
     }
     if (typeof query.isArchived === "boolean") {
       filter.isArchived = query.isArchived;

@@ -9,6 +9,7 @@ import { getQueryClient } from "@/lib/query-client";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { PWAInstaller } from "@/components/pwa/pwa-installer";
+import { NavigationProgress } from "@/components/layout/navigation-progress";
 
 interface AppProvidersProps {
   children: React.ReactNode;
@@ -28,6 +29,9 @@ export function AppProviders({ children }: AppProvidersProps) {
     <ReduxProvider store={storeRef.current}>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
+          <React.Suspense fallback={null}>
+            <NavigationProgress />
+          </React.Suspense>
           {children}
           <CommandPalette />
           <PWAInstaller />

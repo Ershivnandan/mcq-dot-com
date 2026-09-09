@@ -8,7 +8,6 @@ import {
   TopicDocument,
   CategoryDocument,
   TagDocument,
-  CollectionDocument,
   QuestionDocument,
   QuestionProgressDocument,
   QuizDocument,
@@ -117,11 +116,6 @@ export async function getTagsCol(): Promise<Collection<TagDocument>> {
   return db.collection<TagDocument>("tags");
 }
 
-export async function getCollectionsCol(): Promise<Collection<CollectionDocument>> {
-  const db = await getDb();
-  return db.collection<CollectionDocument>("collections");
-}
-
 export async function getQuestionsCol(): Promise<Collection<QuestionDocument>> {
   const db = await getDb();
   return db.collection<QuestionDocument>("questions");
@@ -163,7 +157,6 @@ export async function ensureIndexes(): Promise<void> {
       db.collection("topics").createIndex({ userId: 1, name: 1 }, { unique: true }),
       db.collection("categories").createIndex({ userId: 1, name: 1 }, { unique: true }),
       db.collection("tags").createIndex({ userId: 1, name: 1 }, { unique: true }),
-      db.collection("collections").createIndex({ userId: 1, name: 1 }, { unique: true }),
       db.collection("questions").createIndex({ userId: 1, questionDate: -1 }),
       db.collection("questions").createIndex({ userId: 1, createdAt: -1 }),
       db.collection("question_progress").createIndex({ questionId: 1 }, { unique: true }),

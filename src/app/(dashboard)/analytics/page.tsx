@@ -1,7 +1,15 @@
 import * as React from "react";
 import { requireAuth } from "@/server/auth/session";
 import { AnalyticsService } from "@/server/services/analytics.service";
-import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard";
+import dynamic from "next/dynamic";
+import { AnalyticsSkeleton } from "@/components/skeletons/analytics/skeleton";
+
+const AnalyticsDashboard = dynamic(
+  () => import("@/components/analytics/analytics-dashboard").then((mod) => mod.AnalyticsDashboard),
+  {
+    loading: () => <AnalyticsSkeleton />,
+  }
+);
 
 export default async function AnalyticsPage() {
   const user = await requireAuth();

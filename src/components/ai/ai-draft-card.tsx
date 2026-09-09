@@ -1,12 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Check, X, Sparkles, BookOpen, Edit2, CheckCircle2 } from "lucide-react";
+import { Check, X, Sparkles, BookOpen, Edit2, CheckCircle2, Calendar } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/ui/date-picker";
+import { useTopicsQuery } from "@/hooks/queries/use-topics";
 
 interface AIDraftCardProps {
   draft: {
@@ -15,16 +17,19 @@ interface AIDraftCardProps {
     explanation?: string | null;
     difficulty: "EASY" | "MEDIUM" | "HARD";
     topic?: string | null;
+    topicId?: string | null;
+    questionDate?: string | Date | null;
     category?: string | null;
     optionsJson: any;
     tagsJson?: any;
     createdAt: string | Date;
   };
-  onApprove: (id: string) => Promise<void>;
+  onApprove: (id: string, overrides?: any) => Promise<void>;
   onReject: (id: string) => Promise<void>;
 }
 
 export function AIDraftCard({ draft, onApprove, onReject }: AIDraftCardProps) {
+  const { data: topics = [] } = useTopicsQuery();
   const [approving, setApproving] = React.useState(false);
   const [rejecting, setRejecting] = React.useState(false);
   const [isEditing, setIsEditing] = React.useState(false);
@@ -32,6 +37,17 @@ export function AIDraftCard({ draft, onApprove, onReject }: AIDraftCardProps) {
   // Editable draft state
   const [questionText, setQuestionText] = React.useState(draft.questionText);
   const [explanation, setExplanation] = React.useState(draft.explanation || "");
+  const [selectedTopicId, setSelectedTopicId] = React.useState<string>(draft.topicId || "none");
+  const [questionDate, setQuestionDate] = React.useState<string>(() => {
+    if (draft.questionDate) {
+      try {
+        return new Date(draft.questionDate).toISOString().slice(0, 10);
+      } catch {
+        // Fallback
+      }
+    }
+    return new Date().toISOString().slice(0, 10);
+  });
   const [options, setOptions] = React.useState<Array<{ id: string; optionText: string; isCorrect: boolean }>>(
     Array.isArray(draft.optionsJson)
       ? draft.optionsJson.map((o: any, idx: number) => ({
@@ -42,10 +58,24 @@ export function AIDraftCard({ draft, onApprove, onReject }: AIDraftCardProps) {
       : []
   );
 
+  const currentTopicName = React.useMemo(() => {
+    if (selectedTopicId !== "none") {
+      const found = topics.find((t: any) => t.id === selectedTopicId);
+      if (found) return found.name;
+    }
+    return draft.topic || "General";
+  }, [selectedTopicId, topics, draft.topic]);
+
   const handleApprove = async () => {
     setApproving(true);
     try {
-      await onApprove(draft.id);
+      await onApprove(draft.id, {
+        questionText: questionText.trim(),
+        explanation: explanation.trim() || null,
+        options,
+        topicId: selectedTopicId !== "none" ? selectedTopicId : draft.topicId || null,
+        questionDate: questionDate ? new Date(questionDate).toISOString() : new Date().toISOString(),
+      });
     } finally {
       setApproving(false);
     }
@@ -65,13 +95,41 @@ export function AIDraftCard({ draft, onApprove, onReject }: AIDraftCardProps) {
       <div className="h-1 w-full bg-gradient-to-r from-purple-500 to-indigo-500" />
       <CardContent className="p-5 space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="purple" className="flex items-center gap-1 font-bold">
               <Sparkles className="h-3 w-3" />
               <span>AI Generated — Draft</span>
             </Badge>
-            {draft.topic && <Badge variant="secondary">{draft.topic}</Badge>}
+
+            {/* Topic Badge or Selector */}
+            {isEditing ? (
+              <select
+                value={selectedTopicId}
+                onChange={(e) => setSelectedTopicId(e.target.value)}
+                className="h-7 text-xs rounded-md border border-border bg-background px-2 py-0.5 font-medium focus:outline-none"
+              >
+                <option value="none">General / No Topic</option>
+                {topics.map((t: any) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              currentTopicName && <Badge variant="secondary">{currentTopicName}</Badge>
+            )}
+
+            {/* Question Date Calendar Picker */}
+            <div className="w-auto max-w-[190px]">
+              <DatePicker
+                date={questionDate}
+                onSelect={(val) => setQuestionDate(val || "")}
+                placeholder="Pick exam date"
+                className="[&>button]:h-7 [&>button]:py-0 [&>button]:px-2.5 [&>button]:text-xs [&>button]:bg-muted/60 hover:[&>button]:bg-muted/90 [&>button]:border-border/70"
+              />
+            </div>
+
             <Badge variant="outline">{draft.difficulty}</Badge>
           </div>
 

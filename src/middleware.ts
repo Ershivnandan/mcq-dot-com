@@ -12,10 +12,10 @@ export function middleware(request: NextRequest) {
   const isDashboardPage =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/questions") ||
+    pathname.startsWith("/topics") ||
     pathname.startsWith("/quiz") ||
     pathname.startsWith("/ai") ||
     pathname.startsWith("/analytics") ||
-    pathname.startsWith("/collections") ||
     pathname.startsWith("/settings");
 
   // If user has no session and tries to access dashboard, redirect to login
@@ -37,10 +37,10 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/questions/:path*",
+    "/topics/:path*",
     "/quiz/:path*",
     "/ai/:path*",
     "/analytics/:path*",
-    "/collections/:path*",
     "/settings/:path*",
     "/login",
     "/signup",

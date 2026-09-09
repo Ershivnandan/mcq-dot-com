@@ -6,11 +6,9 @@ export async function GET(req: Request) {
   try {
     const user = await requireAuth();
     const url = new URL(req.url);
-    const collectionId = url.searchParams.get("collectionId") || undefined;
     const topicId = url.searchParams.get("topicId") || undefined;
 
     const exportData = await ImportExportService.exportQuestionsJson(user.id, {
-      collectionId,
       topicId,
     });
 

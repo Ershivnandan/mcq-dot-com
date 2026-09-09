@@ -120,18 +120,6 @@ export interface TagDocument {
   updatedAt: Date;
 }
 
-export interface CollectionDocument {
-  _id?: ObjectId;
-  id?: string;
-  userId: string;
-  name: string;
-  description?: string | null;
-  color?: string | null;
-  questionIds?: string[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 export interface QuestionDocument {
   _id?: ObjectId;
   id?: string;
@@ -147,7 +135,6 @@ export interface QuestionDocument {
   topicId?: string | null;
   categoryId?: string | null;
   tagIds?: string[];
-  collectionIds?: string[];
   options: QuestionOption[];
   createdAt: Date;
   updatedAt: Date;
@@ -220,6 +207,8 @@ export interface AIDraftQuestionDocument {
   optionsJson: any;
   explanation?: string | null;
   topic?: string | null;
+  topicId?: string | null;
+  questionDate?: Date | null;
   category?: string | null;
   difficulty: Difficulty;
   tagsJson?: any;

@@ -23,6 +23,17 @@ import { Badge } from "@/components/ui/badge";
 import { QuestionCard } from "@/components/questions/question-card";
 import { formatDate } from "@/lib/utils";
 
+import dynamic from "next/dynamic";
+import { DashboardChartsSkeleton } from "@/components/skeletons/dashboard/skeleton";
+
+const DashboardCharts = dynamic(
+  () => import("@/components/dashboard/dashboard-charts").then((mod) => mod.DashboardCharts),
+  {
+    ssr: false,
+    loading: () => <DashboardChartsSkeleton />,
+  }
+);
+
 export default async function DashboardPage() {
   const user = await requireAuth();
 
@@ -138,6 +149,9 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Progress & Questions Analytics Charts */}
+      <DashboardCharts metrics={metrics} />
 
       {/* Spaced Repetition Due Today Widget */}
       {dueQuestions.length > 0 && (

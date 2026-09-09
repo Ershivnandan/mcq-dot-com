@@ -16,10 +16,12 @@ import {
   Zap,
   Loader2,
   X,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -143,6 +145,10 @@ export function QuestionEditor({
   const [aiPrompt, setAiPrompt] = React.useState("");
   const [aiModel, setAiModel] = React.useState<string>(DEFAULT_GEMINI_MODEL);
   const [aiDifficulty, setAiDifficulty] = React.useState<"EASY" | "MEDIUM" | "HARD">("MEDIUM");
+  const [aiTopicId, setAiTopicId] = React.useState<string>("none");
+  const [aiQuestionDate, setAiQuestionDate] = React.useState<string>(
+    () => new Date().toISOString().slice(0, 10)
+  );
   const [aiLoading, setAiLoading] = React.useState(false);
   const [aiError, setAiError] = React.useState<string | null>(null);
   const [aiSuccessMessage, setAiSuccessMessage] = React.useState<string | null>(null);
@@ -216,6 +222,7 @@ export function QuestionEditor({
     setAiLoading(true);
 
     try {
+      const selectedTopicObj = topicList.find((t) => t.id === aiTopicId);
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -223,6 +230,9 @@ export function QuestionEditor({
           prompt: aiPrompt.trim(),
           count: 1,
           difficulty: aiDifficulty,
+          topicId: aiTopicId !== "none" ? aiTopicId : null,
+          topic: selectedTopicObj ? selectedTopicObj.name : "General",
+          questionDate: aiQuestionDate || new Date().toISOString().slice(0, 10),
           model: aiModel,
           provider: "GEMINI",
         }),
@@ -254,6 +264,13 @@ export function QuestionEditor({
             optionOrder: opt.optionOrder ?? idx,
           }))
         );
+      }
+
+      if (aiTopicId && aiTopicId !== "none") {
+        setTopicId(aiTopicId);
+      }
+      if (aiQuestionDate) {
+        setQuestionDate(aiQuestionDate);
       }
 
       setAiSuccessMessage(`Successfully injected question generated with ${aiModel}!`);
@@ -565,11 +582,10 @@ export function QuestionEditor({
                   <Calendar className="h-3 w-3" />
                   <span>Question / Exam Date</span>
                 </label>
-                <Input
-                  type="date"
-                  value={questionDate}
-                  onChange={(e) => setQuestionDate(e.target.value)}
-                  className="h-9"
+                <DatePicker
+                  date={questionDate}
+                  onSelect={(val) => setQuestionDate(val || "")}
+                  placeholder="Pick exam date"
                 />
               </div>
 
@@ -713,6 +729,41 @@ export function QuestionEditor({
                 <p className="text-[10px] text-muted-foreground leading-tight">
                   Calibrates the question's distractor complexity and depth.
                 </p>
+              </div>
+            </div>
+
+            {/* Topic and Date Grid in Modal */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                  <BookOpen className="h-3 w-3 text-purple-500" />
+                  <span>Assign Topic</span>
+                </label>
+                <Select value={aiTopicId} onValueChange={setAiTopicId}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Select Topic" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None (No Topic)</SelectItem>
+                    {topicList.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                  <Calendar className="h-3 w-3 text-purple-500" />
+                  <span>Question Date</span>
+                </label>
+                <DatePicker
+                  date={aiQuestionDate}
+                  onSelect={(val) => setAiQuestionDate(val || "")}
+                  placeholder="Pick question date"
+                />
               </div>
             </div>
 
