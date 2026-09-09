@@ -2,107 +2,66 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { PlusCircle, Download, Upload, HelpCircle, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import {
+  PlusCircle,
+  Download,
+  HelpCircle,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuestionCard } from "@/components/questions/question-card";
 import { QuestionTable } from "@/components/questions/question-table";
-import { QuestionFilterBar, FilterState } from "@/components/questions/question-filter-bar";
+import { QuestionFilterBar } from "@/components/questions/question-filter-bar";
 import { BulkActionsBar } from "@/components/questions/bulk-actions-bar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { setFilters, setPage } from "@/store/slices/filter-slice";
+import { setViewMode } from "@/store/slices/ui-slice";
+import { useTopicsQuery } from "@/hooks/queries/use-topics";
+import {
+  useQuestionsQuery,
+  useToggleFavoriteMutation,
+  useDeleteQuestionMutation,
+  useBulkQuestionsMutation,
+} from "@/hooks/queries/use-questions";
 
 export default function QuestionsPage() {
-  const [questions, setQuestions] = React.useState<any[]>([]);
-  const [topics, setTopics] = React.useState<any[]>([]);
-  const [pagination, setPagination] = React.useState({ total: 0, page: 1, limit: 20, totalPages: 1 });
-  const [loading, setLoading] = React.useState(true);
+  const dispatch = useAppDispatch();
+  const filters = useAppSelector((state) => state.filters);
+  const viewMode = useAppSelector((state) => state.ui.viewMode);
 
-  // Filter state
-  const [filters, setFilters] = React.useState<FilterState>({
-    search: "",
-    topicId: "",
-    difficulty: "",
-    isFavorite: false,
-    isArchived: false,
-    dateFrom: "",
-    dateTo: "",
-    viewMode: "cards",
-  });
+  // TanStack Queries for data caching and synchronization
+  const { data: topics = [] } = useTopicsQuery();
+  const { data, isLoading: loading } = useQuestionsQuery(filters);
 
-  // Bulk selection state
-  const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
-
-  // Load topics
-  React.useEffect(() => {
-    fetch("/api/topics")
-      .then((r) => r.json())
-      .then((t) => {
-        if (Array.isArray(t)) setTopics(t);
-      })
-      .catch(() => []);
-  }, []);
-
-  // Fetch questions on filter or page change
-  const fetchQuestions = React.useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (filters.search) params.set("search", filters.search);
-      if (filters.topicId) params.set("topicId", filters.topicId);
-      if (filters.difficulty) params.set("difficulty", filters.difficulty);
-      if (filters.isFavorite) params.set("isFavorite", "true");
-      if (filters.isArchived) params.set("isArchived", "true");
-      if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
-      if (filters.dateTo) params.set("dateTo", filters.dateTo);
-      params.set("page", String(pagination.page));
-      params.set("limit", String(pagination.limit));
-
-      const res = await fetch(`/api/questions?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setQuestions(data.questions || []);
-        setPagination(data.pagination || { total: 0, page: 1, limit: 20, totalPages: 1 });
-      }
-    } catch {
-      // Ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, pagination.page, pagination.limit]);
-
-  React.useEffect(() => {
-    const timeout = setTimeout(() => {
-      fetchQuestions();
-    }, 250);
-    return () => clearTimeout(timeout);
-  }, [fetchQuestions]);
-
-  const handleToggleFavorite = async (id: string) => {
-    try {
-      const res = await fetch(`/api/questions/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "toggleFavorite" }),
-      });
-      if (res.ok) {
-        setQuestions((prev) =>
-          prev.map((q) => (q.id === id ? { ...q, isFavorite: !q.isFavorite } : q))
-        );
-      }
-    } catch {
-      // Ignore
-    }
+  const questions = data?.questions || [];
+  const pagination = data?.pagination || {
+    total: 0,
+    page: filters.page,
+    limit: filters.limit,
+    totalPages: 1,
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      const res = await fetch(`/api/questions/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        setQuestions((prev) => prev.filter((q) => q.id !== id));
+  // Mutations for optimistic / cache-invalidating updates
+  const toggleFavoriteMutation = useToggleFavoriteMutation();
+  const deleteMutation = useDeleteQuestionMutation();
+  const bulkMutation = useBulkQuestionsMutation();
+
+  // Local selection state for bulk actions
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+
+  const handleToggleFavorite = (id: string) => {
+    toggleFavoriteMutation.mutate(id);
+  };
+
+  const handleDelete = (id: string) => {
+    deleteMutation.mutate(id, {
+      onSuccess: () => {
         setSelectedIds((prev) => prev.filter((item) => item !== id));
-      }
-    } catch {
-      // Ignore
-    }
+      },
+    });
   };
 
   const handleToggleSelect = (id: string) => {
@@ -112,31 +71,23 @@ export default function QuestionsPage() {
   };
 
   const handleSelectAll = () => {
-    if (questions.every((q) => selectedIds.includes(q.id))) {
+    if (questions.length > 0 && questions.every((q: any) => selectedIds.includes(q.id))) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(questions.map((q) => q.id));
+      setSelectedIds(questions.map((q: any) => q.id));
     }
   };
 
-  const handleBulkAction = async (action: "favorite" | "archive" | "delete") => {
-    try {
-      const res = await fetch("/api/questions/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questionIds: selectedIds,
-          action,
-        }),
-      });
-
-      if (res.ok) {
-        setSelectedIds([]);
-        await fetchQuestions();
+  const handleBulkAction = (action: "favorite" | "archive" | "delete") => {
+    if (selectedIds.length === 0) return;
+    bulkMutation.mutate(
+      { questionIds: selectedIds, action },
+      {
+        onSuccess: () => {
+          setSelectedIds([]);
+        },
       }
-    } catch {
-      // Ignore
-    }
+    );
   };
 
   return (
@@ -148,7 +99,8 @@ export default function QuestionsPage() {
             Question Library
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            Manage, filter, search, and practice your entire MCQ collection ({pagination.total} total).
+            Manage, filter, search, and practice your entire MCQ collection (
+            {pagination.total} total).
           </p>
         </div>
 
@@ -160,7 +112,11 @@ export default function QuestionsPage() {
             </Button>
           </Link>
           <Link href="/ai">
-            <Button size="sm" variant="secondary" className="gap-1.5 font-semibold bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="gap-1.5 font-semibold bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20"
+            >
               <Sparkles className="h-4 w-4 text-purple-600" />
               <span>Generate AI</span>
             </Button>
@@ -174,12 +130,34 @@ export default function QuestionsPage() {
         </div>
       </div>
 
-      {/* Filter Bar */}
+      {/* Filter Bar connected to Redux store */}
       <QuestionFilterBar
-        filters={filters}
+        filters={{
+          search: filters.search,
+          topicId: filters.topicId,
+          difficulty: filters.difficulty,
+          isFavorite: filters.isFavorite,
+          isArchived: filters.isArchived,
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          viewMode: viewMode,
+        }}
         onChange={(newFilters) => {
-          setFilters(newFilters);
-          setPagination((p) => ({ ...p, page: 1 }));
+          dispatch(
+            setFilters({
+              search: newFilters.search,
+              topicId: newFilters.topicId,
+              difficulty: newFilters.difficulty,
+              isFavorite: newFilters.isFavorite,
+              isArchived: newFilters.isArchived,
+              dateFrom: newFilters.dateFrom,
+              dateTo: newFilters.dateTo,
+              page: 1,
+            })
+          );
+          if (newFilters.viewMode !== viewMode) {
+            dispatch(setViewMode(newFilters.viewMode));
+          }
         }}
         topics={topics}
       />
@@ -222,9 +200,9 @@ export default function QuestionsPage() {
             </Link>
           </div>
         </div>
-      ) : filters.viewMode === "cards" ? (
+      ) : viewMode === "cards" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {questions.map((q) => (
+          {questions.map((q: any) => (
             <QuestionCard
               key={q.id}
               question={q}
@@ -258,8 +236,8 @@ export default function QuestionsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPagination((p) => ({ ...p, page: Math.max(1, p.page - 1) }))}
-              disabled={pagination.page === 1}
+              onClick={() => dispatch(setPage(Math.max(1, pagination.page - 1)))}
+              disabled={pagination.page <= 1}
               className="gap-1"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -269,8 +247,10 @@ export default function QuestionsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPagination((p) => ({ ...p, page: Math.min(p.totalPages, p.page + 1) }))}
-              disabled={pagination.page === pagination.totalPages}
+              onClick={() =>
+                dispatch(setPage(Math.min(pagination.totalPages, pagination.page + 1)))
+              }
+              disabled={pagination.page >= pagination.totalPages}
               className="gap-1"
             >
               <span>Next</span>

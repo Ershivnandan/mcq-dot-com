@@ -27,6 +27,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn, formatTime } from "@/lib/utils";
+import { useAppDispatch } from "@/store";
+import {
+  startQuiz,
+  answerQuestion,
+  setCurrentQuestionIndex as setReduxIndex,
+  completeQuiz,
+} from "@/store/slices/quiz-slice";
 
 interface QuestionItem {
   id: string;
@@ -55,6 +62,7 @@ interface QuizRunnerProps {
 
 export function QuizRunner({ quiz, questions }: QuizRunnerProps) {
   const router = useRouter();
+  const dispatch = useAppDispatch();
 
   const [currentIndex, setCurrentIndex] = React.useState(0);
   // Track answers: questionId -> selectedOptionId
@@ -72,6 +80,11 @@ export function QuizRunner({ quiz, questions }: QuizRunnerProps) {
   const currentQ = questions[currentIndex];
   const isPractice = quiz.mode === "PRACTICE";
   const isExam = quiz.mode === "EXAM";
+
+  // Initialize quiz session in Redux on mount
+  React.useEffect(() => {
+    dispatch(startQuiz({ quizId: quiz.id }));
+  }, [quiz.id, dispatch]);
 
   // Exam Countdown Timer
   const totalExamSeconds = (quiz.timeLimitMinutes || 15) * 60;
@@ -111,6 +124,7 @@ export function QuizRunner({ quiz, questions }: QuizRunnerProps) {
       ...prev,
       [currentQ.id]: optionId,
     }));
+    dispatch(answerQuestion({ questionId: currentQ.id, optionId }));
   };
 
   const toggleMarkForReview = () => {
@@ -152,6 +166,7 @@ export function QuizRunner({ quiz, questions }: QuizRunnerProps) {
       }
 
       const attempt = await res.json();
+      dispatch(completeQuiz());
       router.push(`/quiz/${quiz.id}/results?attemptId=${attempt.id}`);
     } catch (error: any) {
       alert(error.message || "Failed to submit quiz.");

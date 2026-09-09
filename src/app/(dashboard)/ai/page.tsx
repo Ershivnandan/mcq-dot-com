@@ -2,69 +2,59 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Sparkles, Key, CheckCheck, RefreshCw, AlertCircle, Layers } from "lucide-react";
+import { Sparkles, Key, CheckCheck, AlertCircle, Layers } from "lucide-react";
 import { AIGeneratorPanel } from "@/components/ai/ai-generator-panel";
 import { AIDraftCard } from "@/components/ai/ai-draft-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  useAIDraftsQuery,
+  useAIConfigsQuery,
+  useApproveDraftMutation,
+  useRejectDraftMutation,
+  AI_QUERY_KEY,
+} from "@/hooks/queries/use-ai";
+import { useQueryClient } from "@tanstack/react-query";
+import { QUESTIONS_QUERY_KEY } from "@/hooks/queries/use-questions";
+import { TOPICS_QUERY_KEY } from "@/hooks/queries/use-topics";
 
 export default function AIPage() {
-  const [drafts, setDrafts] = React.useState<any[]>([]);
-  const [configs, setConfigs] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const queryClient = useQueryClient();
+  const { data: drafts = [], isLoading: draftsLoading } = useAIDraftsQuery();
+  const { data: configs = [], isLoading: configsLoading } = useAIConfigsQuery();
+
+  const approveDraftMutation = useApproveDraftMutation();
+  const rejectDraftMutation = useRejectDraftMutation();
+
   const [approvingAll, setApprovingAll] = React.useState(false);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [draftsRes, configsRes] = await Promise.all([
-        fetch("/api/ai/drafts"),
-        fetch("/api/ai/config"),
-      ]);
-
-      if (draftsRes.ok) {
-        const d = await draftsRes.json();
-        setDrafts(Array.isArray(d) ? d : []);
-      }
-      if (configsRes.ok) {
-        const c = await configsRes.json();
-        setConfigs(Array.isArray(c) ? c : []);
-      }
-    } catch {
-      // Ignore
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  React.useEffect(() => {
-    loadData();
-  }, []);
+  const loading = draftsLoading || configsLoading;
 
   const handleApprove = async (id: string) => {
-    const res = await fetch(`/api/ai/drafts/${id}/approve`, { method: "POST" });
-    if (res.ok) {
-      setDrafts((prev) => prev.filter((d) => d.id !== id));
-    } else {
-      const err = await res.json();
-      alert(err.error || "Failed to approve draft.");
+    try {
+      await approveDraftMutation.mutateAsync(id);
+    } catch (err: any) {
+      alert(err.message || "Failed to approve draft.");
     }
   };
 
   const handleReject = async (id: string) => {
-    const res = await fetch(`/api/ai/drafts/${id}/reject`, { method: "POST" });
-    if (res.ok) {
-      setDrafts((prev) => prev.filter((d) => d.id !== id));
+    try {
+      await rejectDraftMutation.mutateAsync(id);
+    } catch {
+      // Ignore
     }
   };
 
   const handleApproveAll = async () => {
+    if (drafts.length === 0) return;
     setApprovingAll(true);
     try {
       for (const draft of drafts) {
         await fetch(`/api/ai/drafts/${draft.id}/approve`, { method: "POST" });
       }
-      setDrafts([]);
+      queryClient.invalidateQueries({ queryKey: [...AI_QUERY_KEY, "drafts"] });
+      queryClient.invalidateQueries({ queryKey: QUESTIONS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: TOPICS_QUERY_KEY });
     } catch {
       // Ignore
     } finally {
@@ -72,7 +62,8 @@ export default function AIPage() {
     }
   };
 
-  const activeProvider = configs.find((c) => c.isDefault)?.provider || configs[0]?.provider || null;
+  const activeProvider =
+    configs.find((c) => c.isDefault)?.provider || configs[0]?.provider || null;
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-16">
@@ -115,7 +106,13 @@ export default function AIPage() {
       )}
 
       {/* Generator Prompt Panel */}
-      <AIGeneratorPanel onGenerated={loadData} activeProvider={activeProvider} configs={configs} />
+      <AIGeneratorPanel
+        onGenerated={() => {
+          queryClient.invalidateQueries({ queryKey: [...AI_QUERY_KEY, "drafts"] });
+        }}
+        activeProvider={activeProvider}
+        configs={configs}
+      />
 
       {/* Drafts Review Section */}
       <div className="space-y-4 pt-4 border-t">

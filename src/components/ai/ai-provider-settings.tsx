@@ -32,22 +32,20 @@ import {
   AIModelOption,
   DEFAULT_GEMINI_MODEL,
 } from "@/lib/constants/ai-models";
-
-interface ProviderConfig {
-  id: string;
-  provider: "GEMINI" | "OPENAI" | "ANTHROPIC";
-  maskedKey: string;
-  defaultModel: string;
-  isDefault: boolean;
-  isEnabled: boolean;
-  detectedModels?: string[];
-  updatedAt: string;
-}
+import {
+  useAIConfigsQuery,
+  useAIUsageQuery,
+  useSaveAIConfigMutation,
+  AIProviderConfigResponse,
+} from "@/hooks/queries/use-ai";
 
 export function AIProviderSettings() {
-  const [configs, setConfigs] = React.useState<ProviderConfig[]>([]);
-  const [usage, setUsage] = React.useState<any>(null);
-  const [loading, setLoading] = React.useState(true);
+  const { data: configs = [], isLoading: configsLoading } = useAIConfigsQuery();
+  const { data: usage, isLoading: usageLoading } = useAIUsageQuery();
+  const saveConfigMutation = useSaveAIConfigMutation();
+
+  const loading = configsLoading && configs.length === 0;
+  const saving = saveConfigMutation.isPending;
 
   // Active form state
   const [selectedProvider, setSelectedProvider] = React.useState<"GEMINI" | "OPENAI" | "ANTHROPIC">("GEMINI");
@@ -65,40 +63,15 @@ export function AIProviderSettings() {
     message: string;
     models?: string[];
   } | null>(null);
-  const [saving, setSaving] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
 
-  const loadData = async () => {
-    try {
-      const [configsRes, usageRes] = await Promise.all([
-        fetch("/api/ai/config"),
-        fetch("/api/ai/usage"),
-      ]);
-
-      if (configsRes.ok) {
-        const data = await configsRes.json();
-        setConfigs(data);
-        // If there's an existing config for the selected provider, sync its default model
-        const existing = data.find((c: ProviderConfig) => c.provider === selectedProvider);
-        if (existing?.defaultModel) {
-          setModel(existing.defaultModel);
-        }
-      }
-
-      if (usageRes.ok) {
-        const usageData = await usageRes.json();
-        setUsage(usageData);
-      }
-    } catch {
-      // Ignore
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Sync selected provider's default model whenever configs update
   React.useEffect(() => {
-    loadData();
-  }, []);
+    const existing = configs.find((c) => c.provider === selectedProvider);
+    if (existing?.defaultModel) {
+      setModel(existing.defaultModel);
+    }
+  }, [configs, selectedProvider]);
 
   const handleProviderChange = (prov: "GEMINI" | "OPENAI" | "ANTHROPIC") => {
     setSelectedProvider(prov);
@@ -140,38 +113,32 @@ export function AIProviderSettings() {
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!apiKey.trim()) {
       alert("Please enter an API key.");
       return;
     }
 
-    setSaving(true);
     setSaveSuccess(false);
 
-    try {
-      const res = await fetch("/api/ai/config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: selectedProvider,
-          apiKey: apiKey.trim(),
-          defaultModel: model,
-          isDefault,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Failed to save configuration.");
-
-      setApiKey("");
-      setSaveSuccess(true);
-      await loadData();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setSaving(false);
-    }
+    saveConfigMutation.mutate(
+      {
+        provider: selectedProvider,
+        apiKey: apiKey.trim(),
+        defaultModel: model,
+        isDefault,
+      },
+      {
+        onSuccess: () => {
+          setApiKey("");
+          setSaveSuccess(true);
+        },
+        onError: (err: any) => {
+          alert(err.message || "Failed to save configuration.");
+        },
+      }
+    );
   };
 
   const activeExisting = configs.find((c) => c.provider === selectedProvider);

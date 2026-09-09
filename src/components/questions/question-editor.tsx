@@ -40,6 +40,12 @@ import {
 import { GEMINI_MODELS, DEFAULT_GEMINI_MODEL } from "@/lib/constants/ai-models";
 import { ModelLimitsDialog } from "@/components/ai/model-limits-dialog";
 import { cn } from "@/lib/utils";
+import { useTopicsQuery, useCreateTopicMutation } from "@/hooks/queries/use-topics";
+import { useAIConfigsQuery } from "@/hooks/queries/use-ai";
+import {
+  useCreateQuestionMutation,
+  useUpdateQuestionMutation,
+} from "@/hooks/queries/use-questions";
 
 interface OptionItem {
   id: string;
@@ -61,18 +67,29 @@ interface QuestionEditorProps {
     topicId?: string | null;
     options: OptionItem[];
   };
-  topics: Array<{ id: string; name: string }>;
+  topics?: Array<{ id: string; name: string }>;
   isEditing?: boolean;
 }
 
 export function QuestionEditor({
   initialData,
-  topics,
+  topics = [],
   isEditing = false,
 }: QuestionEditorProps) {
   const router = useRouter();
-  const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  // TanStack Queries & Mutations
+  const { data: serverTopics = [] } = useTopicsQuery();
+  const { data: aiConfigs } = useAIConfigsQuery();
+  const topicList = serverTopics.length > 0 ? serverTopics : topics;
+
+  const createTopicMutation = useCreateTopicMutation();
+  const createQuestionMutation = useCreateQuestionMutation();
+  const updateQuestionMutation = useUpdateQuestionMutation();
+
+  const loading = createQuestionMutation.isPending || updateQuestionMutation.isPending;
+  const creatingTopic = createTopicMutation.isPending;
 
   const [questionText, setQuestionText] = React.useState(initialData?.questionText || "");
   const [explanation, setExplanation] = React.useState(initialData?.explanation || "");
@@ -90,44 +107,35 @@ export function QuestionEditor({
   const [topicId, setTopicId] = React.useState(initialData?.topicId || "");
 
   // Topics management state
-  const [topicList, setTopicList] = React.useState(topics);
   const [createTopicModalOpen, setCreateTopicModalOpen] = React.useState(false);
   const [newTopicName, setNewTopicName] = React.useState("");
   const [newTopicDesc, setNewTopicDesc] = React.useState("");
   const [newTopicColor, setNewTopicColor] = React.useState("#6366f1");
-  const [creatingTopic, setCreatingTopic] = React.useState(false);
   const [createTopicError, setCreateTopicError] = React.useState<string | null>(null);
 
-  const handleCreateTopic = async (e: React.FormEvent) => {
+  const handleCreateTopic = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTopicName.trim()) return;
-    setCreatingTopic(true);
     setCreateTopicError(null);
-    try {
-      const res = await fetch("/api/topics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newTopicName.trim(),
-          description: newTopicDesc.trim() || undefined,
-          color: newTopicColor,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to create topic");
+
+    createTopicMutation.mutate(
+      {
+        name: newTopicName.trim(),
+        description: newTopicDesc.trim() || undefined,
+        color: newTopicColor,
+      },
+      {
+        onSuccess: (created) => {
+          setTopicId(created.id);
+          setCreateTopicModalOpen(false);
+          setNewTopicName("");
+          setNewTopicDesc("");
+        },
+        onError: (err: any) => {
+          setCreateTopicError(err.message || "Failed to create topic");
+        },
       }
-      const created = await res.json();
-      setTopicList((prev) => [...prev, created]);
-      setTopicId(created.id);
-      setCreateTopicModalOpen(false);
-      setNewTopicName("");
-      setNewTopicDesc("");
-    } catch (err: any) {
-      setCreateTopicError(err.message || "Failed to create topic");
-    } finally {
-      setCreatingTopic(false);
-    }
+    );
   };
 
   // AI Prompt Injection State
@@ -139,20 +147,15 @@ export function QuestionEditor({
   const [aiError, setAiError] = React.useState<string | null>(null);
   const [aiSuccessMessage, setAiSuccessMessage] = React.useState<string | null>(null);
 
-  // Sync configured default model from settings
+  // Sync configured default model from settings cached query
   React.useEffect(() => {
-    fetch("/api/ai/config")
-      .then((r) => r.json())
-      .then((configs) => {
-        if (Array.isArray(configs)) {
-          const geminiConf = configs.find((c) => c.provider === "GEMINI");
-          if (geminiConf?.defaultModel) {
-            setAiModel(geminiConf.defaultModel);
-          }
-        }
-      })
-      .catch(() => {});
-  }, []);
+    if (Array.isArray(aiConfigs)) {
+      const geminiConf = aiConfigs.find((c) => c.provider === "GEMINI");
+      if (geminiConf?.defaultModel) {
+        setAiModel(geminiConf.defaultModel);
+      }
+    }
+  }, [aiConfigs]);
 
   // Options state
   const [options, setOptions] = React.useState<OptionItem[]>(
@@ -294,43 +297,39 @@ export function QuestionEditor({
       return;
     }
 
-    setLoading(true);
+    const payload = {
+      questionText: questionText.trim(),
+      explanation: explanation.trim() || null,
+      difficulty,
+      questionDate: questionDate ? new Date(questionDate).toISOString() : new Date().toISOString(),
+      source: source.trim() || null,
+      notes: notes.trim() || null,
+      isFavorite,
+      topicId: topicId && topicId !== "none" ? topicId : null,
+      options: filledOptions,
+    };
 
-    try {
-      const payload = {
-        questionText: questionText.trim(),
-        explanation: explanation.trim() || null,
-        difficulty,
-        questionDate: questionDate ? new Date(questionDate).toISOString() : new Date().toISOString(),
-        source: source.trim() || null,
-        notes: notes.trim() || null,
-        isFavorite,
-        topicId: topicId && topicId !== "none" ? topicId : null,
-        options: filledOptions,
-      };
-
-      const url = isEditing
-        ? `/api/questions/${initialData?.id}`
-        : "/api/questions";
-      const method = isEditing ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+    if (isEditing && initialData?.id) {
+      updateQuestionMutation.mutate(
+        { id: initialData.id, data: payload },
+        {
+          onSuccess: () => {
+            router.push("/questions");
+          },
+          onError: (err: any) => {
+            setError(err.message || "Failed to update question.");
+          },
+        }
+      );
+    } else {
+      createQuestionMutation.mutate(payload, {
+        onSuccess: () => {
+          router.push("/questions");
+        },
+        onError: (err: any) => {
+          setError(err.message || "Failed to create question.");
+        },
       });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to save question.");
-      }
-
-      router.push("/questions");
-      router.refresh();
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
-    } finally {
-      setLoading(false);
     }
   };
 

@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { GEMINI_MODELS, PROVIDER_MODELS_MAP, AIModelOption } from "@/lib/constants/ai-models";
+import { useAIUsageQuery } from "@/hooks/queries/use-ai";
 
 interface ModelLimitsDialogProps {
   provider?: string;
@@ -31,32 +32,10 @@ interface ModelLimitsDialogProps {
 
 export function ModelLimitsDialog({ provider = "GEMINI", trigger }: ModelLimitsDialogProps) {
   const [open, setOpen] = React.useState(false);
-  const [usage, setUsage] = React.useState<any>(null);
-  const [loading, setLoading] = React.useState(false);
+  const { data: usage, isLoading: loading } = useAIUsageQuery();
   const [activeTab, setActiveTab] = React.useState<"models" | "usage">("models");
 
   const models: AIModelOption[] = PROVIDER_MODELS_MAP[provider] || GEMINI_MODELS;
-
-  const loadUsage = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/ai/usage");
-      if (res.ok) {
-        const data = await res.json();
-        setUsage(data);
-      }
-    } catch {
-      // Ignore
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  React.useEffect(() => {
-    if (open) {
-      loadUsage();
-    }
-  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

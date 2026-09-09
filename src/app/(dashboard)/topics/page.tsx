@@ -9,9 +9,6 @@ import {
   Trash2,
   Edit3,
   Search,
-  BookOpen,
-  ArrowRight,
-  FolderPlus,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,27 +21,28 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-
-interface TopicItem {
-  id: string;
-  name: string;
-  slug?: string;
-  description?: string | null;
-  color?: string | null;
-  _count?: { questions: number };
-}
+import {
+  useTopicsQuery,
+  useCreateTopicMutation,
+  useUpdateTopicMutation,
+  useDeleteTopicMutation,
+  TopicItem,
+} from "@/hooks/queries/use-topics";
 
 export default function TopicsPage() {
-  const [topics, setTopics] = React.useState<TopicItem[]>([]);
   const [search, setSearch] = React.useState("");
-  const [loading, setLoading] = React.useState(true);
+
+  // TanStack Query & Mutations
+  const { data: topics = [], isLoading: loading } = useTopicsQuery();
+  const createTopicMutation = useCreateTopicMutation();
+  const updateTopicMutation = useUpdateTopicMutation();
+  const deleteTopicMutation = useDeleteTopicMutation();
 
   // New topic modal state
   const [showNewModal, setShowNewModal] = React.useState(false);
   const [newTopicName, setNewTopicName] = React.useState("");
   const [newTopicDesc, setNewTopicDesc] = React.useState("");
   const [newTopicColor, setNewTopicColor] = React.useState("#6366f1");
-  const [creating, setCreating] = React.useState(false);
   const [createError, setCreateError] = React.useState<string | null>(null);
 
   // Edit topic modal state
@@ -52,58 +50,30 @@ export default function TopicsPage() {
   const [editTopicName, setEditTopicName] = React.useState("");
   const [editTopicDesc, setEditTopicDesc] = React.useState("");
   const [editTopicColor, setEditTopicColor] = React.useState("#6366f1");
-  const [savingEdit, setSavingEdit] = React.useState(false);
   const [editError, setEditError] = React.useState<string | null>(null);
 
-  const loadTopics = async () => {
-    try {
-      const res = await fetch("/api/topics");
-      if (res.ok) {
-        const data = await res.json();
-        setTopics(Array.isArray(data) ? data : []);
-      }
-    } catch {
-      // Ignore
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  React.useEffect(() => {
-    loadTopics();
-  }, []);
-
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTopicName.trim()) return;
-    setCreating(true);
     setCreateError(null);
 
-    try {
-      const res = await fetch("/api/topics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newTopicName.trim(),
-          description: newTopicDesc.trim() || undefined,
-          color: newTopicColor,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to create topic");
+    createTopicMutation.mutate(
+      {
+        name: newTopicName.trim(),
+        description: newTopicDesc.trim() || undefined,
+        color: newTopicColor,
+      },
+      {
+        onSuccess: () => {
+          setNewTopicName("");
+          setNewTopicDesc("");
+          setShowNewModal(false);
+        },
+        onError: (err: any) => {
+          setCreateError(err.message || "Failed to create topic");
+        },
       }
-
-      setNewTopicName("");
-      setNewTopicDesc("");
-      setShowNewModal(false);
-      await loadTopics();
-    } catch (err: any) {
-      setCreateError(err.message || "Failed to create topic");
-    } finally {
-      setCreating(false);
-    }
+    );
   };
 
   const startEdit = (topic: TopicItem) => {
@@ -114,57 +84,46 @@ export default function TopicsPage() {
     setEditError(null);
   };
 
-  const handleSaveEdit = async (e: React.FormEvent) => {
+  const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTopic || !editTopicName.trim()) return;
-    setSavingEdit(true);
     setEditError(null);
 
-    try {
-      const res = await fetch(`/api/topics/${editingTopic.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: editTopicName.trim(),
-          description: editTopicDesc.trim() || null,
-          color: editTopicColor,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to update topic");
+    updateTopicMutation.mutate(
+      {
+        id: editingTopic.id,
+        name: editTopicName.trim(),
+        description: editTopicDesc.trim() || null,
+        color: editTopicColor,
+      },
+      {
+        onSuccess: () => {
+          setEditingTopic(null);
+        },
+        onError: (err: any) => {
+          setEditError(err.message || "Failed to update topic");
+        },
       }
-
-      setEditingTopic(null);
-      await loadTopics();
-    } catch (err: any) {
-      setEditError(err.message || "Failed to update topic");
-    } finally {
-      setSavingEdit(false);
-    }
+    );
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Delete topic "${name}"? Questions tagged under this topic will remain intact.`)) {
+  const handleDelete = (id: string, name: string) => {
+    if (
+      !confirm(
+        `Delete topic "${name}"? Questions tagged under this topic will remain intact.`
+      )
+    ) {
       return;
     }
-
-    try {
-      const res = await fetch(`/api/topics/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        setTopics((prev) => prev.filter((t) => t.id !== id));
-      }
-    } catch {
-      // Ignore
-    }
+    deleteTopicMutation.mutate(id);
   };
 
   const filteredTopics = search.trim()
     ? topics.filter(
         (t) =>
           t.name.toLowerCase().includes(search.toLowerCase()) ||
-          (t.description && t.description.toLowerCase().includes(search.toLowerCase()))
+          (t.description &&
+            t.description.toLowerCase().includes(search.toLowerCase()))
       )
     : topics;
 
@@ -369,8 +328,12 @@ export default function TopicsPage() {
               <Button type="button" variant="outline" onClick={() => setShowNewModal(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={creating || !newTopicName.trim()} className="font-semibold">
-                {creating ? "Creating..." : "Create Topic"}
+              <Button
+                type="submit"
+                disabled={createTopicMutation.isPending || !newTopicName.trim()}
+                className="font-semibold"
+              >
+                {createTopicMutation.isPending ? "Creating..." : "Create Topic"}
               </Button>
             </DialogFooter>
           </form>
@@ -431,8 +394,12 @@ export default function TopicsPage() {
               <Button type="button" variant="outline" onClick={() => setEditingTopic(null)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={savingEdit || !editTopicName.trim()} className="font-semibold">
-                {savingEdit ? "Saving..." : "Save Changes"}
+              <Button
+                type="submit"
+                disabled={updateTopicMutation.isPending || !editTopicName.trim()}
+                className="font-semibold"
+              >
+                {updateTopicMutation.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>
