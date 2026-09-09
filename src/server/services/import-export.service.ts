@@ -95,6 +95,12 @@ export class ImportExportService {
     ]);
 
     const now = new Date();
+    const baseTime = now.getTime();
+
+    // Find current maximum orderIndex for this user to preserve global insertion sequence
+    const lastQuestion = await questionsCol.findOne({ userId }, { sort: { orderIndex: -1 } });
+    let globalOrderIndex = lastQuestion?.orderIndex && lastQuestion.orderIndex > 0 ? lastQuestion.orderIndex : 0;
+
     const topicCache = new Map<string, string>(); // topicName -> topicId
     const categoryCache = new Map<string, string>(); // categoryName -> categoryId
 
@@ -108,7 +114,7 @@ export class ImportExportService {
       questionBatch = [];
 
       try {
-        const res = await questionsCol.insertMany(currentBatch, { ordered: false });
+        const res = await questionsCol.insertMany(currentBatch, { ordered: true });
         const insertedIds = res.insertedIds;
         const insertedKeys = Object.keys(insertedIds);
 
@@ -292,6 +298,9 @@ export class ImportExportService {
           qDate = new Date();
         }
 
+        globalOrderIndex++;
+        const questionCreatedAt = new Date(baseTime + globalOrderIndex * 1000);
+
         questionBatch.push({
           userId,
           questionText: qText,
@@ -305,8 +314,9 @@ export class ImportExportService {
           categoryId,
           tagIds: [],
           options,
-          createdAt: now,
-          updatedAt: now,
+          orderIndex: globalOrderIndex,
+          createdAt: questionCreatedAt,
+          updatedAt: questionCreatedAt,
         });
 
         // Flush batch when size limit reached
@@ -330,7 +340,7 @@ export class ImportExportService {
     const query: any = { userId };
     if (filter?.topicId) query.topicId = filter.topicId;
 
-    const rawQuestions = await questionsCol.find(query).sort({ createdAt: 1 }).toArray();
+    const rawQuestions = await questionsCol.find(query).sort({ orderIndex: 1, createdAt: 1, _id: 1 }).toArray();
 
     const [topicsCol, categoriesCol] = await Promise.all([
       getTopicsCol(),

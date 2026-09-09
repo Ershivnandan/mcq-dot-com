@@ -135,6 +135,7 @@ export interface QuestionDocument {
   options: QuestionOption[];
   topic?: { id?: string; name: string } | null;
   category?: { id?: string; name: string } | null;
+  orderIndex?: number;
   createdAt: Date;
   updatedAt: Date;
 }

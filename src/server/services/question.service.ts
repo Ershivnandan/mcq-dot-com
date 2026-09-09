@@ -65,23 +65,37 @@ export class QuestionService {
 
     // Sorting: if date filter is active or sortBy is questionDate, sort by questionDate ascending
     const hasDateFilter = Boolean(query.dateFrom || query.dateTo);
-    const sortBy = query.sortBy || (hasDateFilter ? "questionDate" : "createdAt");
-    const defaultOrder = sortBy === "questionDate" ? "asc" : "desc";
+    const sortBy = query.sortBy || (hasDateFilter ? "questionDate" : "orderIndex");
+    const defaultOrder = (sortBy === "questionDate" || sortBy === "orderIndex") ? "asc" : "desc";
     const sortOrder = query.sortOrder || defaultOrder;
     const dir = sortOrder === "asc" ? 1 : -1;
 
     const sortObj: any = {};
     if (sortBy === "questionDate") {
       sortObj.questionDate = dir;
+      sortObj.orderIndex = 1;
       sortObj.createdAt = 1;
+      sortObj._id = 1;
+    } else if (sortBy === "orderIndex") {
+      sortObj.orderIndex = dir;
+      sortObj.createdAt = dir;
+      sortObj._id = dir;
     } else if (sortBy === "updatedAt") {
       sortObj.updatedAt = dir;
+      sortObj.orderIndex = 1;
+      sortObj._id = dir;
     } else if (sortBy === "alphabetical") {
       sortObj.questionText = dir;
+      sortObj.orderIndex = 1;
+      sortObj._id = dir;
     } else if (sortBy === "difficulty") {
       sortObj.difficulty = dir;
+      sortObj.orderIndex = 1;
+      sortObj._id = dir;
     } else {
       sortObj.createdAt = dir;
+      sortObj.orderIndex = dir;
+      sortObj._id = dir;
     }
 
     const page = query.page || 1;
@@ -171,6 +185,10 @@ export class QuestionService {
       isCorrect: opt.isCorrect,
     }));
 
+    const questionsCol = await getQuestionsCol();
+    const lastQuestion = await questionsCol.findOne({ userId }, { sort: { orderIndex: -1 } });
+    const nextOrderIndex = (lastQuestion?.orderIndex && lastQuestion.orderIndex > 0 ? lastQuestion.orderIndex : 0) + 1;
+
     const questionDoc: any = {
       userId,
       questionText: data.questionText,
@@ -184,11 +202,11 @@ export class QuestionService {
       topicId: data.topicId || null,
       tagIds: data.tagIds || [],
       options,
+      orderIndex: nextOrderIndex,
       createdAt: now,
       updatedAt: now,
     };
 
-    const questionsCol = await getQuestionsCol();
     const res = await questionsCol.insertOne(questionDoc);
     const qId = res.insertedId.toString();
 

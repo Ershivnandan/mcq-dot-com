@@ -10,6 +10,7 @@ describe("ImportExportService - Bulk Import", () => {
 
   beforeEach(() => {
     mockQuestionsCol = {
+      findOne: vi.fn().mockResolvedValue(null),
       insertMany: vi.fn().mockImplementation((docs) => {
         const insertedIds: Record<number, string> = {};
         docs.forEach((_: any, idx: number) => {
@@ -132,5 +133,34 @@ describe("ImportExportService - Bulk Import", () => {
     expect(summary.imported).toBe(2);
     expect(summary.totalInFile).toBe(2);
     expect(mockQuestionsCol.insertMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("strictly preserves the original sequence order of questions from the JSON file", async () => {
+    mockQuestionsCol.findOne.mockResolvedValueOnce({ orderIndex: 42 });
+
+    const mockBackup = {
+      folders: [
+        {
+          name: "Section 1",
+          questions: [
+            { q: "First Question?", opts: ["A", "B"], ans: 0 },
+            { q: "Second Question?", opts: ["A", "B"], ans: 1 },
+            { q: "Third Question?", opts: ["A", "B"], ans: 0 },
+          ],
+        },
+      ],
+    };
+
+    const summary = await ImportExportService.importBackupJson("user_1", mockBackup);
+
+    expect(summary.imported).toBe(3);
+    expect(mockQuestionsCol.insertMany).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ questionText: "First Question?", orderIndex: 43 }),
+        expect.objectContaining({ questionText: "Second Question?", orderIndex: 44 }),
+        expect.objectContaining({ questionText: "Third Question?", orderIndex: 45 }),
+      ]),
+      { ordered: true }
+    );
   });
 });

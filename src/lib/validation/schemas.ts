@@ -66,7 +66,7 @@ export const QuestionQuerySchema = z.object({
   isArchived: z.string().transform((v) => v === "true").optional(),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
-  sortBy: z.enum(["questionDate", "createdAt", "updatedAt", "alphabetical", "difficulty", "accuracy"]).optional(),
+  sortBy: z.enum(["questionDate", "createdAt", "updatedAt", "alphabetical", "difficulty", "accuracy", "orderIndex"]).optional(),
   sortOrder: z.enum(["asc", "desc"]).optional(),
   page: z.string().transform((v) => Math.max(1, parseInt(v) || 1)).default("1"),
   limit: z.string().transform((v) => Math.min(100, Math.max(1, parseInt(v) || 20))).default("20"),
