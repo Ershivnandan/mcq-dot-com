@@ -12,6 +12,7 @@ import {
   LogOut,
   Settings,
   Menu,
+  Smartphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
@@ -141,6 +142,17 @@ export function Header({ onMenuToggle, user }: HeaderProps) {
             <DropdownMenuItem onClick={() => router.push("/settings/ai")} className="cursor-pointer">
               <Sparkles className="mr-2 h-4 w-4 text-purple-500" />
               <span>AI Provider & Keys</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("open-pwa-install"));
+                }
+              }}
+              className="cursor-pointer font-medium text-primary focus:text-primary"
+            >
+              <Smartphone className="mr-2 h-4 w-4" />
+              <span>Install App (PWA)</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push("/settings")} className="cursor-pointer">
               <Settings className="mr-2 h-4 w-4" />

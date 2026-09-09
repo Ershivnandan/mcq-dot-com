@@ -8,6 +8,7 @@ import { makeStore, AppStore } from "@/store";
 import { getQueryClient } from "@/lib/query-client";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { CommandPalette } from "@/components/layout/command-palette";
+import { PWAInstaller } from "@/components/pwa/pwa-installer";
 
 interface AppProvidersProps {
   children: React.ReactNode;
@@ -29,6 +30,7 @@ export function AppProviders({ children }: AppProvidersProps) {
         <ThemeProvider>
           {children}
           <CommandPalette />
+          <PWAInstaller />
         </ThemeProvider>
         {process.env.NODE_ENV === "development" && (
           <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
