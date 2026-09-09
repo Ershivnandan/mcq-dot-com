@@ -29,7 +29,6 @@ import { DashboardChartsSkeleton } from "@/components/skeletons/dashboard/skelet
 const DashboardCharts = dynamic(
   () => import("@/components/dashboard/dashboard-charts").then((mod) => mod.DashboardCharts),
   {
-    ssr: false,
     loading: () => <DashboardChartsSkeleton />,
   }
 );
