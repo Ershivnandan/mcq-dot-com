@@ -43,18 +43,29 @@ export class OpenAIProvider implements AIProvider {
   ): Promise<AIGeneratedQuestion[]> {
     const activeModel = model || "gpt-4o-mini";
 
+    const optionCount = options.optionCount || 4;
+    const sampleOptions = Array.from(
+      { length: optionCount },
+      (_, i) => `"Option ${String.fromCharCode(65 + i)}"`
+    ).join(", ");
+
     const systemPrompt = `You are a professional educational assessment creator and exam question author.
 Generate exactly ${options.count} high-quality multiple choice questions (MCQs) in valid JSON format.
 Difficulty: ${options.difficulty || "MEDIUM"}.
 Topic: ${options.topic || "General"}.
 Category: ${options.category || "General"}.
 
+IMPORTANT RULES:
+1. Each question must have EXACTLY ${optionCount} distinct, realistic options.
+2. Only ONE option must be correct.
+3. Provide a clear, detailed explanation.
+
 Return ONLY valid JSON matching this schema:
 {
   "questions": [
     {
       "question": "Question string",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "options": [${sampleOptions}],
       "correctOptionIndex": 0,
       "explanation": "Detailed explanation string",
       "topic": "${options.topic || "General"}",

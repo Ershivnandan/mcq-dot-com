@@ -21,6 +21,7 @@ export interface AIGenerationOptions {
   prompt?: string;
   count?: number;
   difficulty?: Difficulty | "EASY" | "MEDIUM" | "HARD";
+  optionCount?: number;
   topic?: string;
   category?: string;
   researchEnabled?: boolean;

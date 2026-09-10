@@ -106,7 +106,7 @@ describe("Zod Validation Schemas", () => {
     expect(unstarredQuery.isFavorite).toBe(false);
   });
 
-  it("validates AIGenerateRequestSchema with topicId, questionDate, and clearPreviousDrafts", () => {
+  it("validates AIGenerateRequestSchema with topicId, questionDate, clearPreviousDrafts, and optionCount", () => {
     const aiReq = {
       prompt: "Generate 5 questions on Distributed Transactions",
       count: 5,
@@ -114,6 +114,7 @@ describe("Zod Validation Schemas", () => {
       topicId: "topic_12345",
       topic: "System Design",
       questionDate: "2026-09-09",
+      optionCount: 5,
     };
     const result = AIGenerateRequestSchema.safeParse(aiReq);
     expect(result.success).toBe(true);
@@ -122,15 +123,17 @@ describe("Zod Validation Schemas", () => {
       expect(result.data.questionDate).toBe("2026-09-09");
       expect(result.data.topic).toBe("System Design");
       expect(result.data.clearPreviousDrafts).toBe(true); // defaults to true
+      expect(result.data.optionCount).toBe(5);
     }
 
-    const aiReqKeep = AIGenerateRequestSchema.safeParse({
+    const aiReqDefault = AIGenerateRequestSchema.safeParse({
       prompt: "Generate 3 questions",
       clearPreviousDrafts: false,
     });
-    expect(aiReqKeep.success).toBe(true);
-    if (aiReqKeep.success) {
-      expect(aiReqKeep.data.clearPreviousDrafts).toBe(false);
+    expect(aiReqDefault.success).toBe(true);
+    if (aiReqDefault.success) {
+      expect(aiReqDefault.data.clearPreviousDrafts).toBe(false);
+      expect(aiReqDefault.data.optionCount).toBe(4); // defaults to 4
     }
   });
 

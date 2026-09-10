@@ -242,6 +242,7 @@ export class AIService {
           prompt: input.prompt,
           count: input.count,
           difficulty: input.difficulty,
+          optionCount: input.optionCount,
           topic: input.topic,
           category: input.category,
           researchEnabled: input.researchEnabled,

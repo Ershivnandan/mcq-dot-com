@@ -134,6 +134,7 @@ export const AIGenerateRequestSchema = z.object({
   researchEnabled: z.boolean().default(false),
   contextData: z.string().optional(),
   clearPreviousDrafts: z.boolean().default(true),
+  optionCount: z.coerce.number().int().min(2).max(6).default(4),
 });
 
 // AI Single Generated Question Output Schema (Strict validation)

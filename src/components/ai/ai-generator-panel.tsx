@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Sparkles, Loader2, BookOpen, Send, HelpCircle, Layers, Bot, Cpu, Zap, Calendar, Globe } from "lucide-react";
+import { Sparkles, Loader2, BookOpen, Send, HelpCircle, Layers, Bot, Cpu, Zap, Calendar, Globe, ListChecks } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,6 +34,7 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
   const [questionDate, setQuestionDate] = React.useState<string>(
     () => new Date().toISOString().slice(0, 10)
   );
+  const [optionCount, setOptionCount] = React.useState<number>(4);
   const [researchEnabled, setResearchEnabled] = React.useState(false);
   const [clearPreviousDrafts, setClearPreviousDrafts] = React.useState(true);
 
@@ -82,6 +83,7 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
           prompt: prompt.trim(),
           count,
           difficulty,
+          optionCount,
           topicId: resolvedTopicId,
           topic: resolvedTopicName,
           questionDate: questionDate || new Date().toISOString().slice(0, 10),
@@ -178,7 +180,7 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
           </div>
 
           {/* Configuration Parameters Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
             {/* Model Selector */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
@@ -260,6 +262,28 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
                   <SelectItem value="EASY">Easy</SelectItem>
                   <SelectItem value="MEDIUM">Medium</SelectItem>
                   <SelectItem value="HARD">Hard</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Options per Question */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                <ListChecks className="h-3 w-3 text-purple-500" />
+                <span>Options</span>
+              </label>
+              <Select
+                value={String(optionCount)}
+                onValueChange={(val) => setOptionCount(parseInt(val) || 4)}
+              >
+                <SelectTrigger className="h-8 text-xs font-medium">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3">3 Options (A-C)</SelectItem>
+                  <SelectItem value="4">4 Options (A-D)</SelectItem>
+                  <SelectItem value="5">5 Options (A-E)</SelectItem>
+                  <SelectItem value="6">6 Options (A-F)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -49,18 +49,29 @@ export class AnthropicProvider implements AIProvider {
   ): Promise<AIGeneratedQuestion[]> {
     const activeModel = model || "claude-3-5-haiku-latest";
 
+    const optionCount = options.optionCount || 4;
+    const sampleOptions = Array.from(
+      { length: optionCount },
+      (_, i) => `"Option ${String.fromCharCode(65 + i)}"`
+    ).join(", ");
+
     const systemPrompt = `You are an expert exam question creator.
 Generate exactly ${options.count} high-quality MCQs as JSON.
 Difficulty: ${options.difficulty || "MEDIUM"}.
 Topic: ${options.topic || "General"}.
 Category: ${options.category || "General"}.
 
+IMPORTANT RULES:
+1. Each question must have EXACTLY ${optionCount} distinct, realistic options.
+2. Only ONE option must be correct.
+3. Provide a clear, detailed explanation.
+
 Return ONLY a JSON object with this exact structure:
 {
   "questions": [
     {
       "question": "Question text",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "options": [${sampleOptions}],
       "correctOptionIndex": 0,
       "explanation": "Detailed explanation",
       "topic": "${options.topic || "General"}",

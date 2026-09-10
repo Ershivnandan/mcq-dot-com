@@ -51,13 +51,19 @@ export class GeminiProvider implements AIProvider {
         ? "gemini-3.5-flash"
         : requestedModel;
 
+    const optionCount = options.optionCount || 4;
+    const sampleOptions = Array.from(
+      { length: optionCount },
+      (_, i) => `"Option ${String.fromCharCode(65 + i)}"`
+    ).join(", ");
+
     const systemPrompt = `You are a professional educational assessment creator and exam question author.
 Generate exactly ${options.count} high-quality multiple choice questions (MCQs) based on the user's instructions.
 Difficulty level: ${options.difficulty || "MEDIUM"}.
 Topic: ${options.topic || "General"}.
 
 IMPORTANT RULES:
-1. Each question must have between 3 to 5 realistic options.
+1. Each question must have EXACTLY ${optionCount} distinct, realistic options.
 2. Only ONE option must be correct.
 3. Provide an in-depth, clear explanation why the correct answer is right and why others are wrong.
 4. Return ONLY valid JSON matching this exact structure:
@@ -65,7 +71,7 @@ IMPORTANT RULES:
   "questions": [
     {
       "question": "Question text here",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "options": [${sampleOptions}],
       "correctOptionIndex": 0,
       "explanation": "Detailed explanation here",
       "topic": "${options.topic || "General"}",
