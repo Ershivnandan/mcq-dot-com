@@ -175,6 +175,10 @@ export interface QuizDocument {
   shuffleOptions?: boolean;
   showInstantFeedback?: boolean;
   isCompleted?: boolean;
+  isSaved?: boolean;
+  savedAt?: Date | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

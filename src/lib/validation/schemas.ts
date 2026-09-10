@@ -81,7 +81,9 @@ export const CreateQuizSchema = z.object({
   shuffleQuestions: z.boolean().default(true),
   shuffleOptions: z.boolean().default(true),
   showExplanations: z.boolean().default(true),
-  questionCount: z.number().int().min(1).max(200).default(20),
+  questionCount: z.number().int().min(1).max(2000).default(20),
+  dateFrom: z.string().optional().nullable(),
+  dateTo: z.string().optional().nullable(),
   // Selection criteria
   topicId: z.string().optional().nullable(),
   difficulty: DifficultyEnum.optional().nullable(),
@@ -91,6 +93,7 @@ export const CreateQuizSchema = z.object({
   dueForReviewOnly: z.boolean().default(false),
   specificQuestionIds: z.array(z.string()).optional(),
 });
+
 
 
 // Submit Quiz Attempt Schema

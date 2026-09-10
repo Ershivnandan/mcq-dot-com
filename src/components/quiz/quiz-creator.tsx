@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Play, Sparkles, Clock, Shuffle, CheckCircle, Repeat, HelpCircle } from "lucide-react";
+import { Play, Sparkles, Clock, Shuffle, CheckCircle, Repeat, HelpCircle, Calendar, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,83 @@ export function QuizCreator({ topics, categories }: QuizCreatorProps) {
   const [shuffleQuestions, setShuffleQuestions] = React.useState(true);
   const [shuffleOptions, setShuffleOptions] = React.useState(true);
 
+  // Date Range / Month Filtering on questionDate
+  const [dateFilterMode, setDateFilterMode] = React.useState<"ALL" | "MONTH" | "RANGE">("ALL");
+  const [selectedMonth, setSelectedMonth] = React.useState<string>("");
+  const [dateFrom, setDateFrom] = React.useState<string>("");
+  const [dateTo, setDateTo] = React.useState<string>("");
+
+  // Live Available Count
+  const [availableCount, setAvailableCount] = React.useState<number | null>(null);
+  const [countingQuestions, setCountingQuestions] = React.useState(false);
+
+  // Fetch available count whenever filters change
+  React.useEffect(() => {
+    let active = true;
+    const fetchCount = async () => {
+      setCountingQuestions(true);
+      try {
+        const params = new URLSearchParams();
+        if (topicId && topicId !== "all") params.set("topicId", topicId);
+        if (difficulty) params.set("difficulty", difficulty);
+        if (onlyFavorites) params.set("onlyFavorites", "true");
+        if (onlyIncorrect) params.set("onlyIncorrect", "true");
+        if (isDueMode) params.set("dueForReviewOnly", "true");
+        if (dateFilterMode !== "ALL") {
+          if (dateFrom) params.set("dateFrom", dateFrom);
+          if (dateTo) params.set("dateTo", dateTo);
+        }
+
+        const res = await fetch(`/api/quizzes/count?${params.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (active) {
+            setAvailableCount(data.count);
+            // Adjust question count to available count if needed
+            if (data.count === 0) {
+              setQuestionCount(0);
+            } else if (questionCount === 0 || questionCount > data.count) {
+              setQuestionCount(Math.min(20, data.count));
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to count questions", err);
+      } finally {
+        if (active) setCountingQuestions(false);
+      }
+    };
+
+    fetchCount();
+    return () => {
+      active = false;
+    };
+  }, [topicId, difficulty, onlyFavorites, onlyIncorrect, isDueMode, dateFilterMode, dateFrom, dateTo]);
+
+  const handleMonthChange = (monthStr: string) => {
+    setSelectedMonth(monthStr);
+    if (!monthStr) {
+      setDateFrom("");
+      setDateTo("");
+      return;
+    }
+    const [yStr, mStr] = monthStr.split("-");
+    const year = parseInt(yStr, 10);
+    const month = parseInt(mStr, 10);
+    if (year && month) {
+      const fromStr = `${year}-${String(month).padStart(2, "0")}-01`;
+      const lastDay = new Date(year, month, 0).getDate();
+      const toStr = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      setDateFrom(fromStr);
+      setDateTo(toStr);
+
+      const monthName = new Date(year, month - 1, 1).toLocaleString("default", { month: "long" });
+      if (title === "Practice Quiz" || title === "Exam Quiz" || title.endsWith("Quiz")) {
+        setTitle(`${monthName} ${year} Quiz`);
+      }
+    }
+  };
+
   const handleStart = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -61,6 +138,8 @@ export function QuizCreator({ topics, categories }: QuizCreatorProps) {
         shuffleQuestions,
         shuffleOptions,
         showExplanations: true,
+        dateFrom: dateFilterMode !== "ALL" && dateFrom ? dateFrom : null,
+        dateTo: dateFilterMode !== "ALL" && dateTo ? dateTo : null,
       };
 
       const res = await fetch("/api/quizzes", {
@@ -155,41 +234,15 @@ export function QuizCreator({ topics, categories }: QuizCreatorProps) {
             </div>
           </div>
 
-          {/* Question Count & Time Limit */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground">Number of Questions</label>
-              <Input
-                type="number"
-                min={1}
-                max={100}
-                value={questionCount}
-                onChange={(e) => setQuestionCount(parseInt(e.target.value) || 10)}
-              />
-            </div>
-
-            {mode === "EXAM" && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground">Time Limit (Minutes)</label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={180}
-                  value={timeLimitMinutes}
-                  onChange={(e) => setTimeLimitMinutes(parseInt(e.target.value) || 15)}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Filtering criteria (unless due mode) */}
+          {/* Question Criteria (unless due mode) */}
           {!isDueMode && (
             <div className="space-y-4 pt-2 border-t">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Question Criteria
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Topic Selector */}
+              <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium">Topic</label>
                   <Select value={topicId} onValueChange={setTopicId}>
@@ -206,6 +259,97 @@ export function QuizCreator({ topics, categories }: QuizCreatorProps) {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* Date Filter (questionDate) */}
+              <div className="rounded-xl border bg-muted/20 p-3.5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-bold text-foreground">Filter by Question Date</span>
+                </div>
+
+                {/* Filter Mode Buttons */}
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={dateFilterMode === "ALL" ? "default" : "outline"}
+                    onClick={() => {
+                      setDateFilterMode("ALL");
+                      setDateFrom("");
+                      setDateTo("");
+                      setSelectedMonth("");
+                    }}
+                    className="text-xs h-8"
+                  >
+                    All Time
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={dateFilterMode === "MONTH" ? "default" : "outline"}
+                    onClick={() => setDateFilterMode("MONTH")}
+                    className="text-xs h-8"
+                  >
+                    Specific Month
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={dateFilterMode === "RANGE" ? "default" : "outline"}
+                    onClick={() => setDateFilterMode("RANGE")}
+                    className="text-xs h-8"
+                  >
+                    Custom Range
+                  </Button>
+                </div>
+
+                {/* Specific Month Picker */}
+                {dateFilterMode === "MONTH" && (
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Select Month & Year
+                    </label>
+                    <Input
+                      type="month"
+                      value={selectedMonth}
+                      onChange={(e) => handleMonthChange(e.target.value)}
+                      className="bg-background"
+                      required={dateFilterMode === "MONTH"}
+                    />
+                    {dateFrom && dateTo && (
+                      <p className="text-[11px] text-emerald-600 font-medium">
+                        ✓ Range: {dateFrom} to {dateTo}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Custom Date Range Pickers */}
+                {dateFilterMode === "RANGE" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">From Date</label>
+                      <Input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e) => setDateFrom(e.target.value)}
+                        className="bg-background"
+                        required={dateFilterMode === "RANGE"}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">To Date</label>
+                      <Input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e) => setDateTo(e.target.value)}
+                        className="bg-background"
+                        required={dateFilterMode === "RANGE"}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Switches */}
@@ -230,9 +374,139 @@ export function QuizCreator({ topics, categories }: QuizCreatorProps) {
             </div>
           )}
 
-          <Button type="submit" disabled={loading} className="w-full gap-2 font-bold py-5 mt-4">
+          {/* Number of Questions & Available Count (Placed after Topic & Date Range) */}
+          <div className="space-y-4 pt-4 border-t">
+            {/* Live Available Count Display */}
+            <div className="rounded-xl border bg-muted/40 p-3.5 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                {countingQuestions ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                ) : availableCount === 0 ? (
+                  <span className="h-3 w-3 rounded-full bg-rose-500" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 text-emerald-600" />
+                )}
+                <div>
+                  <p className="text-xs font-bold text-foreground">
+                    {countingQuestions ? (
+                      "Counting matching questions..."
+                    ) : availableCount === 0 ? (
+                      "0 Questions Available"
+                    ) : (
+                      `${availableCount ?? "..."} Questions Available`
+                    )}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {availableCount === 0
+                      ? "No questions match your current filters. Try adjusting topic or date range."
+                      : `You can select up to ${Math.min(2000, availableCount || 2000)} questions from this criteria.`}
+                  </p>
+                </div>
+              </div>
+
+              {availableCount !== null && availableCount > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setQuestionCount(Math.min(2000, availableCount))}
+                  className="text-xs h-7 font-semibold"
+                >
+                  Select All ({Math.min(2000, availableCount)})
+                </Button>
+              )}
+            </div>
+
+            {/* Question Count & Time Limit Inputs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-muted-foreground">
+                    Number of Questions to Attempt
+                  </label>
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    Max: {availableCount !== null ? Math.min(2000, availableCount) : 2000}
+                  </span>
+                </div>
+                <Input
+                  type="number"
+                  min={availableCount === 0 ? 0 : 1}
+                  max={availableCount !== null ? Math.min(2000, availableCount) : 2000}
+                  value={questionCount}
+                  disabled={availableCount === 0}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    const maxLimit = availableCount !== null ? Math.min(2000, availableCount) : 2000;
+                    setQuestionCount(Math.min(maxLimit, Math.max(1, val)));
+                  }}
+                />
+
+                {/* Quick count preset chips */}
+                {availableCount !== null && availableCount > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {[10, 20, 50, 100, 250, 500, 1000]
+                      .filter((num) => num < availableCount)
+                      .map((num) => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => setQuestionCount(num)}
+                          className={cn(
+                            "px-2 py-0.5 rounded text-[11px] font-semibold border transition-all cursor-pointer",
+                            questionCount === num
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-muted/40 hover:bg-muted text-muted-foreground"
+                          )}
+                        >
+                          {num}
+                        </button>
+                      ))}
+                    <button
+                      type="button"
+                      onClick={() => setQuestionCount(Math.min(2000, availableCount))}
+                      className={cn(
+                        "px-2 py-0.5 rounded text-[11px] font-semibold border transition-all cursor-pointer",
+                        questionCount === Math.min(2000, availableCount)
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/40 hover:bg-muted text-muted-foreground"
+                      )}
+                    >
+                      All ({Math.min(2000, availableCount)})
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {mode === "EXAM" && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground">
+                    Time Limit (Minutes)
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={180}
+                    value={timeLimitMinutes}
+                    onChange={(e) => setTimeLimitMinutes(parseInt(e.target.value) || 15)}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={loading || countingQuestions || availableCount === 0 || questionCount < 1}
+            className="w-full gap-2 font-bold py-5 mt-4"
+          >
             <Play className="h-4 w-4 fill-current" />
-            <span>{loading ? "Generating Quiz..." : "Start Quiz Now"}</span>
+            <span>
+              {loading
+                ? "Generating Quiz..."
+                : availableCount === 0
+                ? "No Questions Match Selected Criteria"
+                : `Start Quiz (${questionCount} Questions)`}
+            </span>
           </Button>
         </CardContent>
       </Card>

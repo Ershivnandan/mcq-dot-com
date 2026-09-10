@@ -92,6 +92,26 @@ export function QuizRunner({ quiz, questions }: QuizRunnerProps) {
     return () => clearInterval(timer);
   }, [currentQ?.id, isExam]);
 
+  // Keyboard navigation (ArrowLeft for Previous, ArrowRight for Next)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (showSubmitModal) return;
+      if (["INPUT", "TEXTAREA"].includes((document.activeElement?.tagName || "").toUpperCase())) {
+        return;
+      }
+      if (e.key === "ArrowLeft") {
+        setCurrentIndex((prev) => Math.max(0, prev - 1));
+      } else if (e.key === "ArrowRight") {
+        if (currentIndex < questions.length - 1) {
+          setCurrentIndex((prev) => prev + 1);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentIndex, questions.length, showSubmitModal]);
+
   const handleSelectOption = (optionId: string) => {
     if (isPractice && answers[currentQ.id]) {
       return; // in practice mode, prevent re-selecting once answered
@@ -223,105 +243,107 @@ export function QuizRunner({ quiz, questions }: QuizRunnerProps) {
         {/* Question Area */}
         <div className={cn("space-y-5", isExam ? "lg:col-span-3" : "lg:col-span-4")}>
           <Card className="border-border/80 shadow-md">
-            <CardContent className="p-6 space-y-6">
-              {/* Question Header */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs font-bold">
-                    Q{currentIndex + 1}
-                  </Badge>
-                  {currentQ?.topic && (
-                    <Badge variant="secondary" className="text-xs font-medium">
-                      {currentQ.topic.name}
+            <CardContent className="p-6 sm:p-8 space-y-6 min-h-[420px] flex flex-col justify-between">
+              <div className="space-y-6">
+                {/* Question Header */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs font-bold">
+                      Q{currentIndex + 1}
                     </Badge>
-                  )}
-                  <Badge
-                    variant={
-                      currentQ?.difficulty === "EASY"
-                        ? "success"
-                        : currentQ?.difficulty === "HARD"
-                        ? "destructive"
-                        : "warning"
-                    }
-                    className="text-[10px]"
-                  >
-                    {currentQ?.difficulty}
-                  </Badge>
-                </div>
-
-                {isExam && (
-                  <Button
-                    variant={markedForReview[currentQ.id] ? "default" : "outline"}
-                    size="sm"
-                    onClick={toggleMarkForReview}
-                    className={cn(
-                      "gap-1.5 h-8 text-xs",
-                      markedForReview[currentQ.id] && "bg-amber-600 hover:bg-amber-700 text-white"
+                    {currentQ?.topic && (
+                      <Badge variant="secondary" className="text-xs font-medium">
+                        {currentQ.topic.name}
+                      </Badge>
                     )}
-                  >
-                    <Flag className="h-3.5 w-3.5" />
-                    <span>{markedForReview[currentQ.id] ? "Marked" : "Review Later"}</span>
-                  </Button>
-                )}
-              </div>
+                    <Badge
+                      variant={
+                        currentQ?.difficulty === "EASY"
+                          ? "success"
+                          : currentQ?.difficulty === "HARD"
+                          ? "destructive"
+                          : "warning"
+                      }
+                      className="text-[10px]"
+                    >
+                      {currentQ?.difficulty}
+                    </Badge>
+                  </div>
 
-              {/* Question Statement */}
-              <p className="text-lg font-semibold text-foreground leading-relaxed">
-                {currentQ?.questionText}
-              </p>
-
-              {/* Options */}
-              <div className="space-y-3 pt-2">
-                {currentQ?.options.map((opt, idx) => {
-                  const isSelected = answers[currentQ.id] === opt.id;
-                  const isAnswered = Boolean(answers[currentQ.id]);
-
-                  let optionClass =
-                    "border-border hover:border-primary/50 hover:bg-accent/40 cursor-pointer text-foreground";
-
-                  if (isPractice && isAnswered) {
-                    if (opt.isCorrect) {
-                      optionClass =
-                        "bg-emerald-500/15 border-emerald-500 text-emerald-800 dark:text-emerald-300 font-semibold";
-                    } else if (isSelected && !opt.isCorrect) {
-                      optionClass = "bg-rose-500/15 border-rose-500 text-rose-800 dark:text-rose-300";
-                    } else {
-                      optionClass = "opacity-40 border-transparent bg-muted/20 cursor-default";
-                    }
-                  } else if (isExam && isSelected) {
-                    optionClass = "border-primary bg-primary/10 text-primary font-semibold ring-1 ring-primary";
-                  }
-
-                  return (
-                    <div
-                      key={opt.id}
-                      onClick={() => handleSelectOption(opt.id)}
+                  {isExam && (
+                    <Button
+                      variant={markedForReview[currentQ.id] ? "default" : "outline"}
+                      size="sm"
+                      onClick={toggleMarkForReview}
                       className={cn(
-                        "flex items-center justify-between p-3.5 rounded-xl border text-sm transition-all select-none",
-                        optionClass
+                        "gap-1.5 h-8 text-xs",
+                        markedForReview[currentQ.id] && "bg-amber-600 hover:bg-amber-700 text-white"
                       )}
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
-                          {String.fromCharCode(65 + idx)}
-                        </span>
-                        <span className="text-base">{opt.optionText}</span>
-                      </div>
+                      <Flag className="h-3.5 w-3.5" />
+                      <span>{markedForReview[currentQ.id] ? "Marked" : "Review Later"}</span>
+                    </Button>
+                  )}
+                </div>
 
-                      {isPractice && isAnswered && opt.isCorrect && (
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                      )}
-                      {isPractice && isAnswered && isSelected && !opt.isCorrect && (
-                        <XCircle className="h-5 w-5 text-rose-600 dark:text-rose-400" />
-                      )}
-                    </div>
-                  );
-                })}
+                {/* Question Statement */}
+                <p className="text-lg font-semibold text-foreground leading-relaxed">
+                  {currentQ?.questionText}
+                </p>
+
+                {/* Options */}
+                <div className="space-y-3 pt-2">
+                  {currentQ?.options.map((opt, idx) => {
+                    const isSelected = answers[currentQ.id] === opt.id;
+                    const isAnswered = Boolean(answers[currentQ.id]);
+
+                    let optionClass =
+                      "border-border hover:border-primary/50 hover:bg-accent/40 cursor-pointer text-foreground";
+
+                    if (isPractice && isAnswered) {
+                      if (opt.isCorrect) {
+                        optionClass =
+                          "bg-emerald-500/15 border-emerald-500 text-emerald-800 dark:text-emerald-300 font-semibold";
+                      } else if (isSelected && !opt.isCorrect) {
+                        optionClass = "bg-rose-500/15 border-rose-500 text-rose-800 dark:text-rose-300";
+                      } else {
+                        optionClass = "opacity-40 border-transparent bg-muted/20 cursor-default";
+                      }
+                    } else if (isExam && isSelected) {
+                      optionClass = "border-primary bg-primary/10 text-primary font-semibold ring-1 ring-primary";
+                    }
+
+                    return (
+                      <div
+                        key={opt.id}
+                        onClick={() => handleSelectOption(opt.id)}
+                        className={cn(
+                          "flex items-center justify-between p-3.5 rounded-xl border text-sm transition-all select-none",
+                          optionClass
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
+                            {String.fromCharCode(65 + idx)}
+                          </span>
+                          <span className="text-base">{opt.optionText}</span>
+                        </div>
+
+                        {isPractice && isAnswered && opt.isCorrect && (
+                          <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                        )}
+                        {isPractice && isAnswered && isSelected && !opt.isCorrect && (
+                          <XCircle className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Practice Mode Solution / Explanation */}
               {isPractice && answers[currentQ.id] && currentQ.explanation && (
-                <div className="rounded-xl bg-muted/40 p-4 text-xs leading-relaxed space-y-1.5 border border-border/60 animate-in fade-in">
+                <div className="rounded-xl bg-muted/40 p-4 text-xs leading-relaxed space-y-1.5 border border-border/60 animate-in fade-in mt-4">
                   <div className="flex items-center gap-2 font-bold text-foreground">
                     <BookOpen className="h-4 w-4 text-primary" />
                     <span>Explanation & Solution</span>
@@ -332,23 +354,29 @@ export function QuizRunner({ quiz, questions }: QuizRunnerProps) {
             </CardContent>
           </Card>
 
-          {/* Navigation Controls */}
-          <div className="flex items-center justify-between gap-3">
+          {/* Sticky Navigation Controls - Stays stably anchored at bottom to prevent vertical jumpiness */}
+          <div className="sticky bottom-4 z-20 bg-card/95 backdrop-blur-md border border-border/80 shadow-xl rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-3">
             <Button
               variant="outline"
               onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
               disabled={currentIndex === 0}
-              className="gap-1.5"
+              className="gap-1.5 font-medium shadow-xs"
             >
               <ArrowLeft className="h-4 w-4" />
               <span>Previous</span>
             </Button>
 
+            <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+              <span className="px-2.5 py-1 rounded-full bg-muted border">
+                Question {currentIndex + 1} of {questions.length}
+              </span>
+            </div>
+
             {currentIndex < questions.length - 1 ? (
               <Button
                 variant="default"
                 onClick={() => setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1))}
-                className="gap-1.5 font-bold"
+                className="gap-1.5 font-bold shadow-xs"
               >
                 <span>Next Question</span>
                 <ArrowRight className="h-4 w-4" />
@@ -357,7 +385,7 @@ export function QuizRunner({ quiz, questions }: QuizRunnerProps) {
               <Button
                 variant="default"
                 onClick={() => setShowSubmitModal(true)}
-                className="gap-1.5 font-bold bg-emerald-600 hover:bg-emerald-700"
+                className="gap-1.5 font-bold bg-emerald-600 hover:bg-emerald-700 shadow-xs"
               >
                 <CheckCircle2 className="h-4 w-4" />
                 <span>Submit & View Results</span>
@@ -373,30 +401,32 @@ export function QuizRunner({ quiz, questions }: QuizRunnerProps) {
               <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
                 Question Palette
               </h3>
-              <div className="grid grid-cols-5 gap-2">
-                {questions.map((q, idx) => {
-                  const isAns = Boolean(answers[q.id]);
-                  const isRev = Boolean(markedForReview[q.id]);
-                  const isCur = idx === currentIndex;
+              <div className="max-h-72 overflow-y-auto pr-1">
+                <div className="grid grid-cols-5 gap-2">
+                  {questions.map((q, idx) => {
+                    const isAns = Boolean(answers[q.id]);
+                    const isRev = Boolean(markedForReview[q.id]);
+                    const isCur = idx === currentIndex;
 
-                  let color = "bg-muted text-muted-foreground hover:bg-muted/80";
-                  if (isRev) color = "bg-amber-500 text-white font-bold";
-                  else if (isAns) color = "bg-primary text-primary-foreground font-bold";
+                    let color = "bg-muted text-muted-foreground hover:bg-muted/80";
+                    if (isRev) color = "bg-amber-500 text-white font-bold";
+                    else if (isAns) color = "bg-primary text-primary-foreground font-bold";
 
-                  return (
-                    <button
-                      key={q.id}
-                      onClick={() => setCurrentIndex(idx)}
-                      className={cn(
-                        "h-8 rounded-md text-xs transition-all cursor-pointer font-mono",
-                        color,
-                        isCur && "ring-2 ring-foreground ring-offset-1 ring-offset-background"
-                      )}
-                    >
-                      {idx + 1}
-                    </button>
-                  );
-                })}
+                    return (
+                      <button
+                        key={q.id}
+                        onClick={() => setCurrentIndex(idx)}
+                        className={cn(
+                          "h-8 rounded-md text-xs transition-all cursor-pointer font-mono",
+                          color,
+                          isCur && "ring-2 ring-foreground ring-offset-1 ring-offset-background"
+                        )}
+                      >
+                        {idx + 1}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Legend */}

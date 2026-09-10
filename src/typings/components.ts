@@ -138,6 +138,7 @@ export interface DetailedAnswer {
 export interface QuizResultsProps {
   attempt: {
     id: string;
+    quizId?: string | null;
     title: string;
     mode: QuizMode | "PRACTICE" | "EXAM";
     totalQuestions: number;
@@ -150,6 +151,7 @@ export interface QuizResultsProps {
     timeSpentSeconds?: number;
     timeTakenSeconds?: number;
     completedAt?: string | Date;
+    quiz?: any;
   };
   answers?: DetailedAnswer[];
   detailedAnswers?: DetailedAnswer[];

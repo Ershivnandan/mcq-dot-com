@@ -3,9 +3,14 @@ import { requireAuth } from "@/server/auth/session";
 import { QuizService } from "@/server/services/quiz.service";
 import { CreateQuizSchema } from "@/lib/validation/schemas";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const user = await requireAuth();
+    const { searchParams } = new URL(req.url);
+    if (searchParams.get("saved") === "true") {
+      const saved = await QuizService.getSavedQuizzes(user.id);
+      return NextResponse.json(saved);
+    }
     const attempts = await QuizService.getAttempts(user.id);
     return NextResponse.json(attempts);
   } catch (error: any) {

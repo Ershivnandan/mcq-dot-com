@@ -12,12 +12,15 @@ import {
   LayoutDashboard,
   HelpCircle,
   BookOpen,
+  Bookmark,
+  BookmarkCheck,
+  Play,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { formatTime } from "@/lib/utils";
+import { formatTime, cn } from "@/lib/utils";
 import { DetailedAnswer, QuizResultsProps } from "@/typings";
 
 export function QuizResults({ attempt, answers = [] }: QuizResultsProps) {
@@ -36,6 +39,35 @@ export function QuizResults({ attempt, answers = [] }: QuizResultsProps) {
   }, [attempt.accuracy]);
 
   const [activeFilter, setActiveFilter] = React.useState<"all" | "correct" | "incorrect" | "unanswered">("all");
+
+  const quizId = attempt.quizId || attempt.quiz?.id || attempt.id;
+  const [isSaved, setIsSaved] = React.useState<boolean>(Boolean(attempt.quiz?.isSaved));
+  const [saving, setSaving] = React.useState(false);
+  const [savedSuccess, setSavedSuccess] = React.useState(false);
+
+  const handleSaveToggle = async () => {
+    if (saving || !quizId) return;
+    setSaving(true);
+    try {
+      const nextSaved = !isSaved;
+      const res = await fetch(`/api/quizzes/${quizId}/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isSaved: nextSaved, title: attempt.title }),
+      });
+      if (res.ok) {
+        setIsSaved(nextSaved);
+        if (nextSaved) {
+          setSavedSuccess(true);
+          setTimeout(() => setSavedSuccess(false), 4000);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to save quiz", err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const filteredAnswers = answers.filter((ans) => {
     if (activeFilter === "correct") return ans.isCorrect;
@@ -103,24 +135,52 @@ export function QuizResults({ attempt, answers = [] }: QuizResultsProps) {
 
           {/* Actions */}
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <Link href="/quiz/new">
-              <Button className="gap-2 font-bold">
+            {/* Retake Quiz Button */}
+            <Link href={`/quiz/${quizId}`}>
+              <Button className="gap-2 font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm">
                 <RotateCcw className="h-4 w-4" />
-                <span>Take Another Quiz</span>
+                <span>Retake This Quiz</span>
               </Button>
             </Link>
-            <Link href="/dashboard">
+
+            {/* Save Quiz Button */}
+            <Button
+              variant={isSaved ? "secondary" : "outline"}
+              onClick={handleSaveToggle}
+              disabled={saving}
+              className={cn(
+                "gap-2 font-semibold transition-all shadow-xs",
+                isSaved ? "border-primary/40 text-primary bg-primary/10 hover:bg-primary/15" : ""
+              )}
+            >
+              {isSaved ? (
+                <BookmarkCheck className="h-4 w-4 text-primary" />
+              ) : (
+                <Bookmark className="h-4 w-4" />
+              )}
+              <span>{saving ? "Saving..." : isSaved ? "Saved in Library" : "Save Quiz"}</span>
+            </Button>
+
+            <Link href="/quiz/new">
               <Button variant="outline" className="gap-2">
-                <LayoutDashboard className="h-4 w-4" />
-                <span>Go to Dashboard</span>
+                <Play className="h-4 w-4" />
+                <span>New Quiz</span>
               </Button>
             </Link>
-            <Link href="/analytics">
+
+            <Link href="/dashboard">
               <Button variant="ghost" className="gap-2">
-                <span>View Analytics</span>
+                <LayoutDashboard className="h-4 w-4" />
+                <span>Dashboard</span>
               </Button>
             </Link>
           </div>
+
+          {savedSuccess && (
+            <p className="text-xs text-emerald-600 font-semibold animate-in fade-in">
+              ✓ Quiz saved to your library! You can retake it anytime from Saved Quizzes.
+            </p>
+          )}
         </CardContent>
       </Card>
 

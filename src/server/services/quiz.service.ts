@@ -36,6 +36,21 @@ export class QuizService {
       if (data.tagId) filter.tagIds = data.tagId;
       if (data.onlyFavorites) filter.isFavorite = true;
 
+      // Date range filter on questionDate
+      if (data.dateFrom || data.dateTo) {
+        filter.questionDate = {};
+        if (data.dateFrom) {
+          const fromDate = new Date(data.dateFrom);
+          fromDate.setHours(0, 0, 0, 0);
+          filter.questionDate.$gte = fromDate;
+        }
+        if (data.dateTo) {
+          const toDate = new Date(data.dateTo);
+          toDate.setHours(23, 59, 59, 999);
+          filter.questionDate.$lte = toDate;
+        }
+      }
+
       // If onlyIncorrect, join with questionProgress
       if (data.onlyIncorrect) {
         const progressCol = await getQuestionProgressCol();
@@ -48,10 +63,13 @@ export class QuizService {
       }
 
       const questionsCol = await getQuestionsCol();
-      const availableQuestions = await questionsCol
-        .find(filter)
-        .project({ _id: 1 })
-        .limit(300)
+      let queryCursor = questionsCol.find(filter).project({ _id: 1, questionDate: 1 });
+      if (data.dateFrom || data.dateTo) {
+        queryCursor = queryCursor.sort({ questionDate: 1, orderIndex: 1, _id: 1 });
+      }
+
+      const availableQuestions = await queryCursor
+        .limit(Math.max(data.questionCount, 2000))
         .toArray();
 
       let ids = availableQuestions.map((q) => q._id.toString());
@@ -79,12 +97,66 @@ export class QuizService {
       showExplanations: data.showExplanations,
       questionIds,
       totalQuestions: questionIds.length,
+      dateFrom: data.dateFrom || null,
+      dateTo: data.dateTo || null,
+      isSaved: false,
+      savedAt: null,
       createdAt: now,
       updatedAt: now,
     };
 
     const res = await quizzesCol.insertOne(doc);
     return formatDoc({ ...doc, _id: res.insertedId });
+  }
+
+  /**
+   * Counts how many questions match the given quiz filter criteria.
+   */
+  static async countMatchingQuestions(userId: string, criteria: Partial<CreateQuizInput>) {
+    if (criteria.dueForReviewOnly) {
+      const dueQuestions = await SpacedRepetitionService.getQuestionsDueToday(userId, 2000);
+      return dueQuestions.length;
+    }
+
+    if (criteria.specificQuestionIds && criteria.specificQuestionIds.length > 0) {
+      return criteria.specificQuestionIds.length;
+    }
+
+    const filter: any = { userId, isArchived: false };
+
+    if (criteria.topicId && criteria.topicId !== "all") filter.topicId = criteria.topicId;
+    if (criteria.difficulty) filter.difficulty = criteria.difficulty;
+    if (criteria.tagId) filter.tagIds = criteria.tagId;
+    if (criteria.onlyFavorites) filter.isFavorite = true;
+
+    // Date range filter on questionDate
+    if (criteria.dateFrom || criteria.dateTo) {
+      filter.questionDate = {};
+      if (criteria.dateFrom) {
+        const fromDate = new Date(criteria.dateFrom);
+        fromDate.setHours(0, 0, 0, 0);
+        filter.questionDate.$gte = fromDate;
+      }
+      if (criteria.dateTo) {
+        const toDate = new Date(criteria.dateTo);
+        toDate.setHours(23, 59, 59, 999);
+        filter.questionDate.$lte = toDate;
+      }
+    }
+
+    // If onlyIncorrect, join with questionProgress
+    if (criteria.onlyIncorrect) {
+      const progressCol = await getQuestionProgressCol();
+      const incorrectProgress = await progressCol
+        .find({ userId, incorrectCount: { $gt: 0 } })
+        .project({ questionId: 1 })
+        .toArray();
+      const ids = incorrectProgress.map((p) => p.questionId);
+      filter._id = { $in: ids.map(toObjectId) };
+    }
+
+    const questionsCol = await getQuestionsCol();
+    return await questionsCol.countDocuments(filter);
   }
 
   /**
@@ -314,5 +386,175 @@ export class QuizService {
       attempt: { ...formatDoc(attempt), quiz },
       answers: detailedAnswers,
     };
+  }
+
+  /**
+   * Toggles or sets saved state on a quiz, with optional title update.
+   */
+  static async saveQuiz(userId: string, quizId: string, isSaved: boolean = true, customTitle?: string) {
+    const quizzesCol = await getQuizzesCol();
+    let quiz = null;
+    try {
+      quiz = await quizzesCol.findOne({ _id: toObjectId(quizId), userId });
+    } catch {
+      // Non-fatal if invalid ObjectId format
+    }
+
+    if (!quiz) {
+      // If quizId points to an attempt, find the attempt and create a quiz from it to save!
+      const attemptsCol = await getQuizAttemptsCol();
+      let attempt = null;
+      try {
+        attempt = await attemptsCol.findOne({ _id: toObjectId(quizId), userId });
+      } catch {}
+
+      if (attempt) {
+        if (attempt.quizId) {
+          try {
+            const linkedQuiz = await quizzesCol.findOne({ _id: toObjectId(attempt.quizId), userId });
+            if (linkedQuiz) {
+              const updateFields: any = {
+                isSaved,
+                savedAt: isSaved ? new Date() : null,
+                updatedAt: new Date(),
+              };
+              if (customTitle?.trim()) updateFields.title = customTitle.trim();
+              await quizzesCol.updateOne({ _id: linkedQuiz._id }, { $set: updateFields });
+              const updated = await quizzesCol.findOne({ _id: linkedQuiz._id });
+              return formatDoc(updated);
+            }
+          } catch {}
+        }
+
+        const now = new Date();
+        const newQuizDoc: any = {
+          userId,
+          title: customTitle?.trim() || attempt.title || "Saved Quiz",
+          mode: attempt.mode,
+          timeLimitMinutes: null,
+          shuffleQuestions: true,
+          shuffleOptions: true,
+          showExplanations: true,
+          questionIds: attempt.answers.map((a: any) => a.questionId),
+          totalQuestions: attempt.totalQuestions || attempt.answers.length,
+          isSaved,
+          savedAt: isSaved ? now : null,
+          createdAt: now,
+          updatedAt: now,
+        };
+        const res = await quizzesCol.insertOne(newQuizDoc);
+        await attemptsCol.updateOne({ _id: attempt._id }, { $set: { quizId: res.insertedId.toString() } });
+        return formatDoc({ ...newQuizDoc, _id: res.insertedId });
+      }
+      throw new Error("Quiz not found or unauthorized");
+    }
+
+    const updateFields: any = {
+      isSaved,
+      savedAt: isSaved ? new Date() : null,
+      updatedAt: new Date(),
+    };
+    if (customTitle?.trim()) {
+      updateFields.title = customTitle.trim();
+    }
+
+    await quizzesCol.updateOne({ _id: quiz._id }, { $set: updateFields });
+    const updated = await quizzesCol.findOne({ _id: quiz._id });
+    return formatDoc(updated);
+  }
+
+  /**
+   * Retrieves all saved quizzes for the user along with attempt statistics.
+   */
+  static async getSavedQuizzes(userId: string) {
+    const quizzesCol = await getQuizzesCol();
+    const attemptsCol = await getQuizAttemptsCol();
+
+    const savedQuizzes = await quizzesCol
+      .find({ userId, isSaved: true })
+      .sort({ savedAt: -1, createdAt: -1 })
+      .toArray();
+
+    if (savedQuizzes.length === 0) return [];
+
+    const quizIds = savedQuizzes.map((q) => q._id.toString());
+    const attempts = await attemptsCol
+      .find({ userId, quizId: { $in: quizIds } })
+      .project({ quizId: 1, score: 1, accuracy: 1, totalQuestions: 1, completedAt: 1 })
+      .sort({ completedAt: -1 })
+      .toArray();
+
+    const statsMap = new Map<string, { attemptsCount: number; bestAccuracy: number; lastAttemptedAt: Date | null }>();
+    for (const att of attempts) {
+      if (!att.quizId) continue;
+      const cur = statsMap.get(att.quizId) || { attemptsCount: 0, bestAccuracy: 0, lastAttemptedAt: null };
+      cur.attemptsCount++;
+      if (att.accuracy > cur.bestAccuracy) cur.bestAccuracy = att.accuracy;
+      if (!cur.lastAttemptedAt && att.completedAt) cur.lastAttemptedAt = att.completedAt;
+      statsMap.set(att.quizId, cur);
+    }
+
+    return savedQuizzes.map((q) => {
+      const qId = q._id.toString();
+      const stats = statsMap.get(qId) || { attemptsCount: 0, bestAccuracy: 0, lastAttemptedAt: null };
+      return {
+        ...formatDoc(q),
+        attemptsCount: stats.attemptsCount,
+        bestAccuracy: stats.bestAccuracy,
+        lastAttemptedAt: stats.lastAttemptedAt,
+      };
+    });
+  }
+
+  /**
+   * Prepares or clones a quiz for retaking, ensuring a valid quiz exists.
+   */
+  static async retakeQuiz(userId: string, quizOrAttemptId: string) {
+    const quizzesCol = await getQuizzesCol();
+    try {
+      const existing = await quizzesCol.findOne({ _id: toObjectId(quizOrAttemptId), userId });
+      if (existing) {
+        return { quizId: existing._id.toString() };
+      }
+    } catch {}
+
+    const attemptsCol = await getQuizAttemptsCol();
+    let attempt = null;
+    try {
+      attempt = await attemptsCol.findOne({ _id: toObjectId(quizOrAttemptId), userId });
+    } catch {}
+
+    if (attempt) {
+      if (attempt.quizId) {
+        try {
+          const linkedQuiz = await quizzesCol.findOne({ _id: toObjectId(attempt.quizId), userId });
+          if (linkedQuiz) {
+            return { quizId: linkedQuiz._id.toString() };
+          }
+        } catch {}
+      }
+
+      // Recreate quiz from attempt answers
+      const now = new Date();
+      const newQuizDoc: any = {
+        userId,
+        title: attempt.title || "Retake Quiz",
+        mode: attempt.mode,
+        timeLimitMinutes: null,
+        shuffleQuestions: true,
+        shuffleOptions: true,
+        showExplanations: true,
+        questionIds: attempt.answers.map((a: any) => a.questionId),
+        totalQuestions: attempt.totalQuestions || attempt.answers.length,
+        isSaved: false,
+        savedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      const res = await quizzesCol.insertOne(newQuizDoc);
+      return { quizId: res.insertedId.toString() };
+    }
+
+    throw new Error("Quiz or attempt not found");
   }
 }

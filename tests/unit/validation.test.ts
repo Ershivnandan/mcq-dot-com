@@ -123,4 +123,36 @@ describe("Zod Validation Schemas", () => {
       expect(result.data.topic).toBe("System Design");
     }
   });
+
+  it("validates CreateQuizSchema with up to 2000 questions and date range", () => {
+    const validLarge = {
+      title: "Comprehensive 2000 Questions Exam",
+      questionCount: 2000,
+      dateFrom: "2026-09-01",
+      dateTo: "2026-09-30",
+    };
+    const res = CreateQuizSchema.safeParse(validLarge);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data.questionCount).toBe(2000);
+      expect(res.data.dateFrom).toBe("2026-09-01");
+      expect(res.data.dateTo).toBe("2026-09-30");
+    }
+
+    // Fails when exceeding 2000 questions
+    const invalidExceed = {
+      title: "Too Many Questions",
+      questionCount: 2001,
+    };
+    const resExceed = CreateQuizSchema.safeParse(invalidExceed);
+    expect(resExceed.success).toBe(false);
+
+    // Default questionCount is 20
+    const resDefault = CreateQuizSchema.safeParse({ title: "Quick Quiz" });
+    expect(resDefault.success).toBe(true);
+    if (resDefault.success) {
+      expect(resDefault.data.questionCount).toBe(20);
+    }
+  });
 });
+
