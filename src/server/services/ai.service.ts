@@ -15,6 +15,7 @@ import { AIProvider } from "@/server/providers/ai-provider.interface";
 import { z } from "zod";
 import { AIConfigInputSchema, AIGenerateRequestSchema } from "@/lib/validation/schemas";
 import { QuestionService } from "./question.service";
+import { ResearchService } from "./research.service";
 import { DraftStatus, AIProviderType } from "@/typings";
 
 export type AIConfigInput = z.infer<typeof AIConfigInputSchema>;
@@ -56,7 +57,7 @@ export class AIService {
       ),
       defaultModel:
         c.provider === "GEMINI" && (c.defaultModel?.startsWith("gemini-2.") || c.defaultModel?.startsWith("gemini-1."))
-          ? "gemini-3.6-flash"
+          ? "gemini-3.5-flash"
           : c.defaultModel,
       isDefault: c.isDefault,
       isEnabled: c.isEnabled,
@@ -214,11 +215,24 @@ export class AIService {
     });
 
     const providerInstance = getProviderInstance(config.provider);
-    const activeModel = input.model || config.defaultModel;
+    let activeModel = input.model || config.defaultModel;
+    if (config.provider === "GEMINI" && (activeModel?.startsWith("gemini-2.") || activeModel?.startsWith("gemini-1."))) {
+      activeModel = "gemini-3.5-flash";
+    }
 
     const startTime = Date.now();
     const logsCol = await getAIUsageLogsCol();
     const draftsCol = await getAIDraftsCol();
+
+    // Fetch real-time research context if research layer is enabled
+    let contextData = input.contextData;
+    if (input.researchEnabled && !contextData) {
+      try {
+        contextData = await ResearchService.fetchResearchContext(input.prompt, input.topic);
+      } catch (researchErr) {
+        console.warn("Failed to fetch research context, proceeding without research:", researchErr);
+      }
+    }
 
     try {
       const generated = await providerInstance.generateQuestions(
@@ -231,7 +245,7 @@ export class AIService {
           topic: input.topic,
           category: input.category,
           researchEnabled: input.researchEnabled,
-          contextData: input.contextData,
+          contextData,
         }
       );
 
@@ -247,6 +261,14 @@ export class AIService {
         if (foundTopic) {
           topicName = foundTopic.name;
         }
+      }
+
+      // Clear previously pending draft questions for this user before saving newly generated questions
+      if (input.clearPreviousDrafts !== false) {
+        await draftsCol.deleteMany({
+          userId,
+          status: { $in: [DraftStatus.DRAFT, "DRAFT"] },
+        });
       }
 
       // Save drafts to database
@@ -404,5 +426,16 @@ export class AIService {
       { $set: { status: DraftStatus.REJECTED, updatedAt: new Date() } }
     );
     return true;
+  }
+
+  /**
+   * Clears (deletes) all pending draft questions for the user.
+   */
+  static async clearPendingDrafts(userId: string) {
+    const draftsCol = await getAIDraftsCol();
+    return await draftsCol.deleteMany({
+      userId,
+      status: { $in: [DraftStatus.DRAFT, "DRAFT"] },
+    });
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Sparkles, Loader2, BookOpen, Send, HelpCircle, Layers, Bot, Cpu, Zap, Calendar } from "lucide-react";
+import { Sparkles, Loader2, BookOpen, Send, HelpCircle, Layers, Bot, Cpu, Zap, Calendar, Globe } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,6 +35,7 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
     () => new Date().toISOString().slice(0, 10)
   );
   const [researchEnabled, setResearchEnabled] = React.useState(false);
+  const [clearPreviousDrafts, setClearPreviousDrafts] = React.useState(true);
 
   // Model selection state
   const effectiveProvider = activeProvider || "GEMINI";
@@ -42,9 +43,11 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
     PROVIDER_MODELS_MAP[effectiveProvider] || GEMINI_MODELS;
 
   // Find user's configured default model if available
+  const rawConfiguredModel = configs.find((c) => c.provider === effectiveProvider)?.defaultModel;
   const configuredModel =
-    configs.find((c) => c.provider === effectiveProvider)?.defaultModel ||
-    DEFAULT_GEMINI_MODEL;
+    rawConfiguredModel && !rawConfiguredModel.startsWith("gemini-2.") && !rawConfiguredModel.startsWith("gemini-1.")
+      ? rawConfiguredModel
+      : DEFAULT_GEMINI_MODEL;
 
   const [selectedModel, setSelectedModel] = React.useState<string>(configuredModel);
 
@@ -83,6 +86,7 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
           topic: resolvedTopicName,
           questionDate: questionDate || new Date().toISOString().slice(0, 10),
           researchEnabled,
+          clearPreviousDrafts,
           provider: effectiveProvider,
           model: selectedModel,
         }),
@@ -294,11 +298,25 @@ export function AIGeneratorPanel({ onGenerated, activeProvider, configs = [] }: 
 
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-            <div className="flex items-center gap-2">
-              <Switch checked={researchEnabled} onCheckedChange={setResearchEnabled} />
-              <span className="text-xs font-medium text-muted-foreground">
-                Enable Research Context Layer
-              </span>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Switch checked={clearPreviousDrafts} onCheckedChange={setClearPreviousDrafts} />
+                <span className="text-xs font-medium text-muted-foreground">
+                  Clear previous pending questions
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={researchEnabled} onCheckedChange={setResearchEnabled} id="research-toggle" />
+                <label htmlFor="research-toggle" className="cursor-pointer select-none">
+                  <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                    <Globe className="h-3.5 w-3.5 text-blue-500" />
+                    Live Web & News Research
+                  </span>
+                  <span className="block text-[10px] text-muted-foreground leading-tight">
+                    Grounds in real-time news & web search
+                  </span>
+                </label>
+              </div>
             </div>
 
             <Button

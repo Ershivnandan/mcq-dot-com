@@ -4,9 +4,22 @@ export type { AIModelOption };
 
 export const GEMINI_MODELS: AIModelOption[] = [
   {
+    id: "gemini-3.5-flash",
+    name: "Gemini 3.5 Flash",
+    badge: "Recommended · Stable",
+    description: "High-speed, highly reliable model with balanced reasoning and assessment intelligence",
+    freeRpm: "15 RPM",
+    freeRpd: "1,500 RPD",
+    freeTpm: "1,000,000 TPM",
+    paidRpm: "1,000 RPM",
+    contextWindow: "1,048,576 tokens",
+    limitsSummary: "15 RPM · 1,500/day",
+    tier: "Free Tier Available",
+  },
+  {
     id: "gemini-3.6-flash",
     name: "Gemini 3.6 Flash",
-    badge: "Recommended · Latest",
+    badge: "Fast · Latest",
     description: "Latest generation ultra-fast model with balanced reasoning and high accuracy",
     freeRpm: "15 RPM",
     freeRpd: "1,500 RPD",
@@ -147,4 +160,4 @@ export const PROVIDER_MODELS_MAP: Record<AIProviderType | string, AIModelOption[
   [AIProviderType.ANTHROPIC]: ANTHROPIC_MODELS,
 };
 
-export const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";

@@ -133,6 +133,7 @@ export const AIGenerateRequestSchema = z.object({
   model: z.string().optional(),
   researchEnabled: z.boolean().default(false),
   contextData: z.string().optional(),
+  clearPreviousDrafts: z.boolean().default(true),
 });
 
 // AI Single Generated Question Output Schema (Strict validation)

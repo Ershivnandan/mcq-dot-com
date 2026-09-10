@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Sparkles, Key, CheckCheck, AlertCircle, Layers } from "lucide-react";
+import { Sparkles, Key, CheckCheck, AlertCircle, Layers, Trash2 } from "lucide-react";
 import { AIGeneratorPanel } from "@/components/ai/ai-generator-panel";
 import { AIDraftCard } from "@/components/ai/ai-draft-card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
   useAIConfigsQuery,
   useApproveDraftMutation,
   useRejectDraftMutation,
+  useClearDraftsMutation,
   AI_QUERY_KEY,
 } from "@/hooks/queries/use-ai";
 import { useQueryClient } from "@tanstack/react-query";
@@ -25,8 +26,10 @@ export default function AIPage() {
 
   const approveDraftMutation = useApproveDraftMutation();
   const rejectDraftMutation = useRejectDraftMutation();
+  const clearDraftsMutation = useClearDraftsMutation();
 
   const [approvingAll, setApprovingAll] = React.useState(false);
+  const [clearingAll, setClearingAll] = React.useState(false);
   const loading = draftsLoading || configsLoading;
 
   const handleApprove = async (id: string, overrides?: any) => {
@@ -42,6 +45,19 @@ export default function AIPage() {
       await rejectDraftMutation.mutateAsync(id);
     } catch {
       // Ignore
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (drafts.length === 0) return;
+    if (!confirm("Are you sure you want to clear all pending draft questions?")) return;
+    setClearingAll(true);
+    try {
+      await clearDraftsMutation.mutateAsync();
+    } catch (err: any) {
+      alert(err.message || "Failed to clear pending drafts.");
+    } finally {
+      setClearingAll(false);
     }
   };
 
@@ -128,15 +144,27 @@ export default function AIPage() {
           </div>
 
           {drafts.length > 0 && (
-            <Button
-              size="sm"
-              onClick={handleApproveAll}
-              disabled={approvingAll}
-              className="gap-1.5 font-bold bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8"
-            >
-              <CheckCheck className="h-4 w-4" />
-              <span>{approvingAll ? "Approving All..." : "Approve All Drafts"}</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearAll}
+                disabled={clearingAll || approvingAll}
+                className="gap-1.5 font-semibold text-xs text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 h-8"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>{clearingAll ? "Clearing..." : "Clear All Pending"}</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleApproveAll}
+                disabled={approvingAll || clearingAll}
+                className="gap-1.5 font-bold bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8"
+              >
+                <CheckCheck className="h-4 w-4" />
+                <span>{approvingAll ? "Approving All..." : "Approve All Drafts"}</span>
+              </Button>
+            </div>
           )}
         </div>
 

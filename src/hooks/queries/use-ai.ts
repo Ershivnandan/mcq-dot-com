@@ -141,3 +141,28 @@ export function useRejectDraftMutation() {
     },
   });
 }
+
+/**
+ * Hook to clear all pending AI drafts.
+ */
+export function useClearDraftsMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/ai/drafts", {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to clear pending drafts");
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...AI_QUERY_KEY, "drafts"] });
+    },
+  });
+}

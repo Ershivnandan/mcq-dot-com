@@ -29,7 +29,7 @@ export class GeminiProvider implements AIProvider {
       return {
         success: true,
         message: "Successfully connected to Google Gemini API!",
-        models: models.length ? models : ["gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"],
+        models: models.length ? models : ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"],
       };
     } catch (error: any) {
       return {
@@ -45,10 +45,10 @@ export class GeminiProvider implements AIProvider {
     options: AIGenerationOptions
   ): Promise<AIGeneratedQuestion[]> {
     const requestedModel = model || DEFAULT_GEMINI_MODEL;
-    // Automatically map deprecated models (gemini-2.5, gemini-2.0, gemini-1.5, etc.) to gemini-3.6-flash
+    // Automatically map deprecated models (gemini-2.5, gemini-2.0, gemini-1.5, etc.) to gemini-3.5-flash
     const activeModel =
       requestedModel.startsWith("gemini-2.") || requestedModel.startsWith("gemini-1.")
-        ? "gemini-3.6-flash"
+        ? "gemini-3.5-flash"
         : requestedModel;
 
     const systemPrompt = `You are a professional educational assessment creator and exam question author.
@@ -83,47 +83,20 @@ IMPORTANT RULES:
     const ai = new GoogleGenAI({ apiKey });
     let rawText: string | undefined;
 
-    // First attempt: Interactions API (Recommended by Google Gemini)
     try {
-      const interaction = await ai.interactions.create({
+      const response = await ai.models.generateContent({
         model: activeModel,
-        input: `${systemPrompt}\n\nUser Request: ${userPrompt}`,
-        response_mime_type: "application/json",
-        store: false,
+        contents: `${systemPrompt}\n\nUser Request: ${userPrompt}`,
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.7,
+        },
       });
-
-      rawText = interaction.output_text;
-
-      // If output_text is empty, check steps
-      if (!rawText && interaction.steps && interaction.steps.length > 0) {
-        for (const step of interaction.steps) {
-          if ((step as any).output_text) {
-            rawText = (step as any).output_text;
-            break;
-          }
-        }
-      }
-    } catch (interactionsError: any) {
-      console.warn("Interactions API attempt failed, falling back to generateContent:", interactionsError?.message);
-
-      // Fallback: models.generateContent
-      try {
-        const response = await ai.models.generateContent({
-          model: activeModel,
-          contents: `${systemPrompt}\n\nUser Request: ${userPrompt}`,
-          config: {
-            responseMimeType: "application/json",
-            temperature: 0.7,
-          },
-        });
-        rawText = response.text;
-      } catch (genContentError: any) {
-        throw new Error(
-          genContentError?.message ||
-          interactionsError?.message ||
-          "Failed to generate questions with Google Gemini API."
-        );
-      }
+      rawText = response.text;
+    } catch (genError: any) {
+      throw new Error(
+        genError?.message || "Failed to generate questions with Google Gemini API."
+      );
     }
 
     if (!rawText) {

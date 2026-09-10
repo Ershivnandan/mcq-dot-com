@@ -12,3 +12,18 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status });
   }
 }
+
+export async function DELETE() {
+  try {
+    const user = await requireAuth();
+    const result = await AIService.clearPendingDrafts(user.id);
+    return NextResponse.json({
+      success: true,
+      message: "All pending drafts cleared.",
+      deletedCount: result.deletedCount,
+    });
+  } catch (error: any) {
+    const status = error.message === "UNAUTHORIZED" ? 401 : 400;
+    return NextResponse.json({ error: error.message }, { status });
+  }
+}
