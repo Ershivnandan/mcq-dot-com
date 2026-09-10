@@ -264,6 +264,15 @@ export interface DateRangePickerProps {
   placeholder?: string;
 }
 
+export interface MonthPickerProps {
+  value?: string | null;
+  onSelect: (value: string | null, details?: { from: string; to: string; label: string }) => void;
+  placeholder?: string;
+  className?: string;
+  clearable?: boolean;
+  disabled?: boolean;
+}
+
 // Layout & Providers
 export interface HeaderProps {
   onMenuToggle?: () => void;

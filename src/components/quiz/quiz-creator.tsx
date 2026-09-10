@@ -14,6 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { cn } from "@/lib/utils";
 import { QuizCreatorProps, QuizMode } from "@/typings";
 
@@ -94,26 +96,37 @@ export function QuizCreator({ topics, categories }: QuizCreatorProps) {
     };
   }, [topicId, difficulty, onlyFavorites, onlyIncorrect, isDueMode, dateFilterMode, dateFrom, dateTo]);
 
-  const handleMonthChange = (monthStr: string) => {
-    setSelectedMonth(monthStr);
-    if (!monthStr) {
+  const handleMonthChange = (
+    val: string | null,
+    details?: { from: string; to: string; label: string }
+  ) => {
+    setSelectedMonth(val || "");
+    if (!val) {
       setDateFrom("");
       setDateTo("");
       return;
     }
-    const [yStr, mStr] = monthStr.split("-");
-    const year = parseInt(yStr, 10);
-    const month = parseInt(mStr, 10);
-    if (year && month) {
-      const fromStr = `${year}-${String(month).padStart(2, "0")}-01`;
-      const lastDay = new Date(year, month, 0).getDate();
-      const toStr = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-      setDateFrom(fromStr);
-      setDateTo(toStr);
-
-      const monthName = new Date(year, month - 1, 1).toLocaleString("default", { month: "long" });
+    if (details) {
+      setDateFrom(details.from);
+      setDateTo(details.to);
       if (title === "Practice Quiz" || title === "Exam Quiz" || title.endsWith("Quiz")) {
-        setTitle(`${monthName} ${year} Quiz`);
+        setTitle(`${details.label} Quiz`);
+      }
+    } else {
+      const [yStr, mStr] = val.split("-");
+      const year = parseInt(yStr, 10);
+      const month = parseInt(mStr, 10);
+      if (year && month) {
+        const fromStr = `${year}-${String(month).padStart(2, "0")}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const toStr = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+        setDateFrom(fromStr);
+        setDateTo(toStr);
+
+        const monthName = new Date(year, month - 1, 1).toLocaleString("default", { month: "long" });
+        if (title === "Practice Quiz" || title === "Exam Quiz" || title.endsWith("Quiz")) {
+          setTitle(`${monthName} ${year} Quiz`);
+        }
       }
     }
   };
@@ -121,6 +134,16 @@ export function QuizCreator({ topics, categories }: QuizCreatorProps) {
   const handleStart = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (dateFilterMode === "MONTH" && !selectedMonth) {
+      setError("Please select a month and year.");
+      return;
+    }
+    if (dateFilterMode === "RANGE" && (!dateFrom || !dateTo)) {
+      setError("Please select both a start date and an end date.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -310,12 +333,11 @@ export function QuizCreator({ topics, categories }: QuizCreatorProps) {
                     <label className="text-xs font-medium text-muted-foreground">
                       Select Month & Year
                     </label>
-                    <Input
-                      type="month"
+                    <MonthPicker
                       value={selectedMonth}
-                      onChange={(e) => handleMonthChange(e.target.value)}
-                      className="bg-background"
-                      required={dateFilterMode === "MONTH"}
+                      onSelect={(val, details) => handleMonthChange(val, details)}
+                      placeholder="Pick month & year"
+                      className="w-full"
                     />
                     {dateFrom && dateTo && (
                       <p className="text-[11px] text-emerald-600 font-medium">
@@ -325,29 +347,27 @@ export function QuizCreator({ topics, categories }: QuizCreatorProps) {
                   </div>
                 )}
 
-                {/* Custom Date Range Pickers */}
+                {/* Custom Date Range Picker (Default app DateRangePicker) */}
                 {dateFilterMode === "RANGE" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-muted-foreground">From Date</label>
-                      <Input
-                        type="date"
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
-                        className="bg-background"
-                        required={dateFilterMode === "RANGE"}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-muted-foreground">To Date</label>
-                      <Input
-                        type="date"
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                        className="bg-background"
-                        required={dateFilterMode === "RANGE"}
-                      />
-                    </div>
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Pick Date Range
+                    </label>
+                    <DateRangePicker
+                      dateFrom={dateFrom || null}
+                      dateTo={dateTo || null}
+                      onSelect={(range) => {
+                        setDateFrom(range.from || "");
+                        setDateTo(range.to || "");
+                      }}
+                      placeholder="Select start and end date"
+                      className="w-full"
+                    />
+                    {dateFrom && dateTo && (
+                      <p className="text-[11px] text-emerald-600 font-medium">
+                        ✓ Range: {dateFrom} to {dateTo}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
