@@ -157,13 +157,13 @@ export function SplitPane({
       {/* Desktop Draggable Two-Column Split Pane (>= 1024px) */}
       <div
         ref={containerRef}
-        className="hidden lg:flex w-full items-stretch min-h-[750px] relative select-none"
+        className="hidden lg:flex w-full items-stretch h-[calc(100vh-175px)] min-h-[600px] max-h-[calc(100vh-140px)] overflow-hidden relative select-none"
       >
         {/* Left Pane (75% Default) */}
         <div
           ref={leftPaneRef}
           style={{ width: `${splitPercent}%` }}
-          className="pr-2.5 overflow-y-auto shrink-0 transition-none select-text"
+          className="pr-2.5 h-full overflow-hidden shrink-0 transition-none select-text flex flex-col"
         >
           {left}
         </div>
@@ -191,7 +191,7 @@ export function SplitPane({
         <div
           ref={rightPaneRef}
           style={{ width: `${100 - splitPercent}%` }}
-          className="pl-2.5 overflow-y-auto shrink-0 transition-none select-text"
+          className="pl-2.5 h-full overflow-hidden shrink-0 transition-none select-text flex flex-col"
         >
           {right}
         </div>

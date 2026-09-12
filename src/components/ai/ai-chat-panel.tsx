@@ -249,7 +249,7 @@ export function AIChatPanel({
   ];
 
   return (
-    <Card className="h-full flex flex-col border-purple-500/30 bg-card shadow-sm overflow-hidden min-h-[750px]">
+    <Card className="h-full flex flex-col border-purple-500/30 bg-card shadow-sm overflow-hidden min-h-0">
       {/* Header */}
       <CardHeader className="p-4 border-b bg-muted/20 shrink-0">
         <div className="flex items-center justify-between gap-2">
@@ -399,7 +399,7 @@ export function AIChatPanel({
       </CardHeader>
 
       {/* Message Stream */}
-      <CardContent className="flex-1 p-3 overflow-y-auto space-y-3 text-xs">
+      <CardContent className="flex-1 min-h-0 p-3 overflow-y-auto space-y-3 text-xs">
         {messages.map((msg) => (
           <div
             key={msg.id}

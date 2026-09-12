@@ -114,9 +114,9 @@ export default function AIPage() {
 
   // Left Pane Content: Generated Questions Studio (75% default width)
   const leftQuestionsPane = (
-    <div className="space-y-4 h-full flex flex-col">
+    <div className="space-y-3 h-full flex flex-col overflow-hidden">
       {/* Studio Action Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl border bg-card/80 backdrop-blur-sm shrink-0">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl border bg-card/95 backdrop-blur-sm shrink-0 shadow-xs">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 font-bold text-sm text-foreground">
             <Layers className="h-4 w-4 text-purple-600" />
@@ -166,8 +166,8 @@ export default function AIPage() {
         </div>
       </div>
 
-      {/* Drafts Cards Container */}
-      <div className="space-y-4 flex-1">
+      {/* Drafts Cards Container with Independent Smooth Scrolling */}
+      <div className="space-y-4 flex-1 overflow-y-auto pr-1.5 min-h-0 pb-8">
         {loading ? (
           <div className="space-y-4">
             <Skeleton className="h-44 w-full rounded-xl" />
