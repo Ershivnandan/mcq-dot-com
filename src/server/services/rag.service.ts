@@ -48,11 +48,12 @@ export class RAGService {
             model: "text-embedding-004",
             contents: text.slice(0, 2048),
           });
-          if (response.embedding?.values) {
-            return response.embedding.values;
+          const resAny = response as any;
+          if (Array.isArray(response.embeddings) && response.embeddings[0]?.values) {
+            return response.embeddings[0].values;
           }
-          if ((response as any).embeddings?.[0]?.values) {
-            return (response as any).embeddings[0].values;
+          if (resAny.embedding?.values) {
+            return resAny.embedding.values;
           }
         } catch {
           // Fallback to REST endpoint
