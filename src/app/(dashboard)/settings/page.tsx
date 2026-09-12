@@ -12,15 +12,20 @@ import {
   AlertCircle,
   FileJson,
   Loader2,
+  Trash2,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { WipeDataDialog } from "@/components/settings/wipe-data-dialog";
 
 export default function SettingsHubPage() {
   const [importing, setImporting] = React.useState(false);
   const [importStatus, setImportStatus] = React.useState<string | null>(null);
   const [importSummary, setImportSummary] = React.useState<any | null>(null);
   const [importError, setImportError] = React.useState<string | null>(null);
+  const [wipeDialogOpen, setWipeDialogOpen] = React.useState(false);
+  const [wipeMode, setWipeMode] = React.useState<"questions-only" | "full-reset">("questions-only");
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -239,6 +244,72 @@ export default function SettingsHubPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Danger Zone: Hard Deletion & Account Reset */}
+      <Card className="border-destructive/30 bg-destructive/5 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2 text-destructive">
+            <Trash2 className="h-4 w-4" />
+            <span>Danger Zone & Account Reset</span>
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Permanently hard-delete question records or wipe all data to start fresh. This cannot be undone.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {/* Wipe Questions Only */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-destructive/20 bg-card">
+            <div className="space-y-0.5">
+              <p className="text-sm font-bold text-foreground">Delete All Questions</p>
+              <p className="text-xs text-muted-foreground">
+                Permanently hard-delete all questions, study progress records, and pending AI drafts. Topics and categories remain.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setWipeMode("questions-only");
+                setWipeDialogOpen(true);
+              }}
+              className="text-destructive hover:bg-destructive/10 border-destructive/30 hover:border-destructive/50 text-xs font-bold shrink-0 gap-1.5"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Delete All Questions</span>
+            </Button>
+          </div>
+
+          {/* Full Account Data Reset */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-destructive/30 bg-destructive/10">
+            <div className="space-y-0.5">
+              <p className="text-sm font-bold text-destructive">Reset Entire Account (Start Fresh)</p>
+              <p className="text-xs text-muted-foreground">
+                Irrevocably hard-delete everything: all questions, progress, quizzes, attempts, topics, categories, tags, and logs. Your login account and session remain active.
+              </p>
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                setWipeMode("full-reset");
+                setWipeDialogOpen(true);
+              }}
+              className="text-xs font-bold shrink-0 gap-1.5 shadow-sm"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              <span>Reset Account Data</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Wipe Confirmation Dialog */}
+      <WipeDataDialog
+        open={wipeDialogOpen}
+        onOpenChange={setWipeDialogOpen}
+        mode={wipeMode}
+      />
     </div>
   );
 }

@@ -7,8 +7,10 @@ import {
   Download,
   HelpCircle,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WipeDataDialog } from "@/components/settings/wipe-data-dialog";
 import {
   Pagination,
   PaginationContent,
@@ -58,6 +60,7 @@ export default function QuestionsPage() {
 
   // Local selection state for bulk actions
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+  const [wipeDialogOpen, setWipeDialogOpen] = React.useState(false);
 
   const handleToggleFavorite = (id: string) => {
     toggleFavoriteMutation.mutate(id);
@@ -134,6 +137,15 @@ export default function QuestionsPage() {
               <span>Export</span>
             </Button>
           </Link>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setWipeDialogOpen(true)}
+            className="gap-1.5 text-xs text-destructive hover:bg-destructive/10 border-destructive/30 hover:border-destructive/50"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span>Wipe All</span>
+          </Button>
         </div>
       </div>
 
@@ -303,6 +315,14 @@ export default function QuestionsPage() {
         selectedCount={selectedIds.length}
         onClear={() => setSelectedIds([])}
         onAction={handleBulkAction}
+      />
+
+      {/* Wipe All Questions Warning Dialog */}
+      <WipeDataDialog
+        open={wipeDialogOpen}
+        onOpenChange={setWipeDialogOpen}
+        mode="questions-only"
+        onSuccess={() => setSelectedIds([])}
       />
     </div>
   );

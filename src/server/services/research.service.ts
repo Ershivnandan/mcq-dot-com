@@ -115,20 +115,33 @@ export class ResearchService {
   }
 
   /**
-   * Determines effective search query from prompt and topic.
+   * Determines effective search query from prompt and topic,
+   * prioritizing exact questions when provided by the user.
    */
-  private static constructSearchQuery(prompt: string, topic?: string): string {
+  static constructSearchQuery(prompt: string, topic?: string): string {
+    const trimmed = prompt.trim();
+
+    // Check if the prompt directly contains a specific question sentence (e.g., ending in '?')
+    const questionMatch = trimmed.match(/([^.?!]*\?)/);
+    if (questionMatch && questionMatch[1].trim().length > 5) {
+      let q = questionMatch[1].trim();
+      // Remove leading instructions like "Generate 5 questions on"
+      q = q.replace(/^(generate|create|make|write|give me|produce)\s+(a\s+|an\s+)?(\d+\s+)?(mcqs?|questions?|quiz|test)?\s*(on|about|for|regarding)?\s*/i, "").trim();
+      if (q.length > 5) return q;
+    }
+
     // Strip common instructional framing (e.g., "Generate 5 questions on...", "Create MCQs about...")
-    let cleanPrompt = prompt
+    let cleanPrompt = trimmed
       .replace(/^(generate|create|make|write|give me|produce)\s+(a\s+|an\s+)?(\d+\s+)?(mcqs?|questions?|quiz|test)?\s*(on|about|for|regarding)?\s*/i, "")
       .replace(/\s*(with|having)\s+\d+\s+options.*/i, "")
       .trim();
 
-    if (!cleanPrompt) {
-      cleanPrompt = topic || "current affairs";
+    // If cleanPrompt looks like an exact query/question (e.g. "What is...", "Why does...", "Explain..."), keep it
+    if (cleanPrompt) {
+      return cleanPrompt;
     }
 
-    return cleanPrompt;
+    return topic || "current affairs";
   }
 
   /**

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, X, Sparkles, BookOpen, Edit2, CheckCircle2, Calendar } from "lucide-react";
+import { Check, X, Sparkles, BookOpen, Edit2, CheckCircle2, Calendar, MessageSquareDiff } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import { useTopicsQuery } from "@/hooks/queries/use-topics";
 
 import { AIDraftCardProps } from "@/typings";
 
-export function AIDraftCard({ draft, onApprove, onReject }: AIDraftCardProps) {
+export function AIDraftCard({ draft, onApprove, onReject, index, onRefineInChat }: AIDraftCardProps) {
   const { data: topics = [] } = useTopicsQuery();
   const [approving, setApproving] = React.useState(false);
   const [rejecting, setRejecting] = React.useState(false);
@@ -81,9 +81,15 @@ export function AIDraftCard({ draft, onApprove, onReject }: AIDraftCardProps) {
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex flex-wrap items-center gap-2">
+            {index !== undefined && (
+              <Badge variant="outline" className="font-mono font-black text-xs px-2 bg-muted/60 border-purple-500/30 text-purple-600 dark:text-purple-400">
+                #{index + 1}
+              </Badge>
+            )}
+
             <Badge variant="purple" className="flex items-center gap-1 font-bold">
               <Sparkles className="h-3 w-3" />
-              <span>AI Generated — Draft</span>
+              <span>AI Draft</span>
             </Badge>
 
             {/* Topic Badge or Selector */}
@@ -118,6 +124,19 @@ export function AIDraftCard({ draft, onApprove, onReject }: AIDraftCardProps) {
           </div>
 
           <div className="flex items-center gap-1.5">
+            {onRefineInChat && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onRefineInChat(index !== undefined ? index + 1 : 1, draft.id)}
+                title="Send critique for this question to AI Chat Copilot"
+                className="h-8 text-xs text-purple-600 dark:text-purple-400 border-purple-500/30 hover:bg-purple-500/10 gap-1 font-semibold"
+              >
+                <MessageSquareDiff className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Refine in Chat</span>
+              </Button>
+            )}
+
             <Button
               variant="ghost"
               size="sm"

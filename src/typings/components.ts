@@ -239,6 +239,8 @@ export interface AIDraftCardProps {
   };
   onApprove: (id: string, overrides?: any) => Promise<void>;
   onReject: (id: string) => Promise<void>;
+  index?: number;
+  onRefineInChat?: (index: number, draftId: string) => void;
 }
 
 export interface ModelLimitsDialogProps {

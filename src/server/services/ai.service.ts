@@ -16,6 +16,7 @@ import { z } from "zod";
 import { AIConfigInputSchema, AIGenerateRequestSchema } from "@/lib/validation/schemas";
 import { QuestionService } from "./question.service";
 import { ResearchService } from "./research.service";
+import { RAGService } from "./rag.service";
 import { DraftStatus, AIProviderType } from "@/typings";
 
 export type AIConfigInput = z.infer<typeof AIConfigInputSchema>;
@@ -232,6 +233,16 @@ export class AIService {
       } catch (researchErr) {
         console.warn("Failed to fetch research context, proceeding without research:", researchErr);
       }
+    }
+
+    // Fetch RAG context from user's MongoDB Atlas library
+    try {
+      const ragContext = await RAGService.buildRAGContext(userId, input.prompt, input.topic);
+      if (ragContext) {
+        contextData = contextData ? `${contextData}\n\n${ragContext}` : ragContext;
+      }
+    } catch (ragErr) {
+      console.warn("Failed to fetch RAG context, proceeding without it:", ragErr);
     }
 
     try {

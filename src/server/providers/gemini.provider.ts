@@ -62,11 +62,16 @@ Generate exactly ${options.count} high-quality multiple choice questions (MCQs) 
 Difficulty level: ${options.difficulty || "MEDIUM"}.
 Topic: ${options.topic || "General"}.
 
-IMPORTANT RULES:
-1. Each question must have EXACTLY ${optionCount} distinct, realistic options.
-2. Only ONE option must be correct.
-3. Provide an in-depth, clear explanation why the correct answer is right and why others are wrong.
-4. Return ONLY valid JSON matching this exact structure:
+CRITICAL RULES:
+1. EXACT QUESTION FIDELITY (HIGHEST PRIORITY):
+   - If the user prompt asks a specific question, poses a problem statement, or inquires about a concrete fact or concept (e.g., "What is X?", "Which protocol...", "Explain Y", etc.), you MUST format THAT EXACT QUESTION as Question #1 (the first MCQ in the "questions" array).
+   - Question #1 must directly present that exact question, with accurate correct answer, ${optionCount - 1} plausible distractors, and a thorough explanation answering it.
+   - The remaining questions (Questions #2 through #${options.count}) should be closely related, relevant follow-up questions exploring that topic.
+   - Only if the prompt is purely a broad topic without a specific question should all questions be drawn generally from the topic.
+2. Each question must have EXACTLY ${optionCount} distinct, realistic options.
+3. Only ONE option must be correct (indicated by zero-based correctOptionIndex).
+4. Provide an in-depth, clear explanation why the correct answer is right and why others are wrong.
+5. Return ONLY valid JSON matching this exact structure:
 {
   "questions": [
     {
@@ -82,9 +87,11 @@ IMPORTANT RULES:
   ]
 }`;
 
-    const userPrompt = options.researchEnabled && options.contextData
-      ? `Research Context:\n${options.contextData}\n\nTask: ${options.prompt}`
-      : options.prompt;
+    let userPrompt = options.researchEnabled && options.contextData
+      ? `VERIFIED RESEARCH CONTEXT:\n${options.contextData}\n\nUSER PROMPT / TASK:\n${options.prompt}`
+      : `USER PROMPT / TASK:\n${options.prompt}`;
+
+    userPrompt += `\n\nREMINDER: If a specific question was asked in the prompt, generate that exact question as Question #1, followed by related questions.`;
 
     const ai = new GoogleGenAI({ apiKey });
     let rawText: string | undefined;
